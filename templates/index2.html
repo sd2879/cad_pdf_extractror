@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LJF- Cost Estimator Application</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+        }
+        #pdfContainer {
+            flex-grow: 1;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        #pdfDisplay {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            height: 100%;
+            overflow: auto; /* Enables scrolling */
+        }
+        #pdfCanvas {
+            border: 1px solid #ddd;
+            cursor: crosshair;
+            width: 100%;
+            height: 100%; /* Matches the container size initially */
+        }
+        #bbox {
+            position: absolute;
+            border: 2px dashed red;
+            display: none;
+            pointer-events: none;
+        }
+        #extractBtn {
+            position: absolute;
+            display: none;
+        }
+        #sidebar {
+            width: 250px;
+            background-color: #f0f0f0;
+            padding: 10px;
+            overflow-y: auto;
+            border-left: 1px solid #ddd;
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
+        .page-item {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .line-item {
+            margin-left: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .line-item button {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="pdfContainer">
+        <h1>PDF Viewer with BBox Extraction</h1>
+        
+        <!-- Page selector controls -->
+        <label for="pageSelector">Select Page:</label>
+        <input type="range" id="pageSelector" min="1" max="{{ page_count }}" value="1">
+        <span id="pageNumberDisplay">Page: 1</span>
+        
+        <label for="pageInput">Go to Page:</label>
+        <input type="number" id="pageInput" min="1" max="{{ page_count }}" value="1">
+        
+        <!-- PDF Display with BBox drawing in a scrollable container -->
+        <div id="pdfDisplay">
+            <canvas id="pdfCanvas"></canvas>
+            <div id="bbox"></div>
+            <button id="extractBtn">Extract BBox Contents</button>
+        </div>
+    </div>
+    
+    <!-- Sidebar for dynamic line items -->
+    <div id="sidebar">
+        <h2>Extracted Items</h2>
+        <div id="lineItems"></div>
+    </div>
+
+    <script>
+        const pageSelector = document.getElementById('pageSelector');
+        const pageNumberDisplay = document.getElementById('pageNumberDisplay');
+        const pageInput = document.getElementById('pageInput');
+        const pdfCanvas = document.getElementById('pdfCanvas');
+        const bbox = document.getElementById('bbox');
+        const extractBtn = document.getElementById('extractBtn');
+        const lineItemsContainer = document.getElementById('lineItems');
+        const pdfDisplay = document.getElementById('pdfDisplay');
+        let lineItemCount = {};
+
+        // Load extracted items from JSON and populate sidebar
+        function loadExtractedItems() {
+            fetch('/get_extracted_items')
+                .then(response => response.json())
+                .then(data => {
+                    const pdfData = data["{{ pdf_name }}"];
+                    if (pdfData) {
+                        for (const [page, items] of Object.entries(pdfData)) {
+                            const pageNum = page.replace("Page ", "");
+                            items.forEach(item => {
+                                addLineItem(page, item.line_item, pageNum);
+                            });
+                        }
+                    }
+                })
+                .catch(error => console.error('Error loading extracted items:', error));
+        }
+
+        // Load and scale the PDF page to fit the canvas initially
+        function loadPage(pageNum) {
+            fetch(`/get_page/${pageNum}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.svg_data) {
+                        const img = new Image();
+                        img.onload = function () {
+                            // Set canvas size to match container dimensions
+                            const displayWidth = pdfDisplay.clientWidth;
+                            const displayHeight = pdfDisplay.clientHeight;
+                            pdfCanvas.width = displayWidth;
+                            pdfCanvas.height = displayHeight;
+
+                            const ctx = pdfCanvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
+                        };
+                        img.src = 'data:image/svg+xml;base64,' + btoa(data.svg_data);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function startDrawing(event) {
+            startX = event.offsetX;
+            startY = event.offsetY;
+            bbox.style.left = startX + 'px';
+            bbox.style.top = startY + 'px';
+            bbox.style.width = '0';
+            bbox.style.height = '0';
+            bbox.style.display = 'block';
+            extractBtn.style.display = 'none';
+            pdfCanvas.addEventListener('mousemove', draw);
+            pdfCanvas.addEventListener('mouseup', stopDrawing);
+        }
+
+        function draw(event) {
+            endX = event.offsetX;
+            endY = event.offsetY;
+            bbox.style.width = Math.abs(endX - startX) + 'px';
+            bbox.style.height = Math.abs(endY - startY) + 'px';
+            bbox.style.left = Math.min(startX, endX) + 'px';
+            bbox.style.top = Math.min(startY, endY) + 'px';
+        }
+
+        function stopDrawing() {
+            pdfCanvas.removeEventListener('mousemove', draw);
+            pdfCanvas.removeEventListener('mouseup', stopDrawing);
+            
+            const bboxRect = bbox.getBoundingClientRect();
+            const pdfDisplayRect = pdfDisplay.getBoundingClientRect();
+            extractBtn.style.left = (bboxRect.right - pdfDisplayRect.left + 10) + 'px';
+            extractBtn.style.top = (bboxRect.bottom - pdfDisplayRect.top + 10) + 'px';
+            extractBtn.style.display = 'block';
+        }
+
+        function extractBBoxContents() {
+            const rect = bbox.getBoundingClientRect();
+            const canvasRect = pdfCanvas.getBoundingClientRect();
+            const scale = pdfCanvas.width / canvasRect.width;
+
+            const x = (rect.left - canvasRect.left) * scale;
+            const y = (rect.top - canvasRect.top) * scale;
+            const width = rect.width * scale;
+            const height = rect.height * scale;
+
+            const pageNum = pageSelector.value;
+            fetch(`/extract_bbox/${pageNum}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ x, y, width, height })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('BBox contents extracted and saved!');
+                addLineItem(data.page, data.line_item, pageNum);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function addLineItem(page, lineItem, pageNum) {
+            if (!lineItemCount[pageNum]) {
+                lineItemCount[pageNum] = 1;
+                const pageDiv = document.createElement('div');
+                pageDiv.classList.add('page-item');
+                pageDiv.innerText = `Page ${pageNum}`;
+                pageDiv.setAttribute('data-page', pageNum);
+                lineItemsContainer.appendChild(pageDiv);
+            } else {
+                lineItemCount[pageNum]++;
+            }
+
+            const lineItemDiv = document.createElement('div');
+            lineItemDiv.classList.add('line-item');
+            lineItemDiv.id = `page-${pageNum}-item-${lineItem}`;
+            lineItemDiv.innerHTML = `
+                -- Line item ${lineItem} 
+                <button onclick="deleteLineItem('${page}', ${lineItem}, ${pageNum})">Delete</button>
+            `;
+            lineItemsContainer.appendChild(lineItemDiv);
+        }
+
+        function deleteLineItem(page, lineItem, pageNum) {
+            fetch(`/delete_line_item/${pageNum}/${lineItem}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Line item deleted');
+                        document.getElementById(`page-${pageNum}-item-${lineItem}`).remove();
+                    } else {
+                        alert('Error deleting line item');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function cancelSelection() {
+            bbox.style.display = 'none';
+            extractBtn.style.display = 'none';
+        }
+
+        function moveBBox(direction) {
+            const step = 5;
+            const rect = bbox.getBoundingClientRect();
+            const pdfDisplayRect = pdfCanvas.getBoundingClientRect();
+
+            switch (direction) {
+                case 'up':
+                    if (rect.top > pdfDisplayRect.top) {
+                        bbox.style.top = (rect.top - step - pdfDisplayRect.top) + 'px';
+                    }
+                    break;
+                case 'down':
+                    if (rect.bottom < pdfDisplayRect.bottom) {
+                        bbox.style.top = (rect.top + step - pdfDisplayRect.top) + 'px';
+                    }
+                    break;
+                case 'left':
+                    if (rect.left > pdfDisplayRect.left) {
+                        bbox.style.left = (rect.left - step - pdfDisplayRect.left) + 'px';
+                    }
+                    break;
+                case 'right':
+                    if (rect.right < pdfDisplayRect.right) {
+                        bbox.style.left = (rect.left + step - pdfDisplayRect.left) + 'px';
+                    }
+                    break;
+            }
+            updateExtractButtonPosition();
+        }
+
+        function updateExtractButtonPosition() {
+            const bboxRect = bbox.getBoundingClientRect();
+            const pdfDisplayRect = pdfDisplay.getBoundingClientRect();
+            extractBtn.style.left = (bboxRect.right - pdfDisplayRect.left + 10) + 'px';
+            extractBtn.style.top = (bboxRect.bottom - pdfDisplayRect.top + 10) + 'px';
+        }
+
+        // Use keydown event listener to ensure movement keys work globally
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                cancelSelection();
+            }
+            if (event.key === 'w') {
+                moveBBox('up');
+            }
+            if (event.key === 's') {
+                moveBBox('down');
+            }
+            if (event.key === 'a') {
+                moveBBox('left');
+            }
+            if (event.key === 'd') {
+                moveBBox('right');
+            }
+        });
+
+        pdfCanvas.addEventListener('mousedown', startDrawing);
+        extractBtn.addEventListener('click', extractBBoxContents);
+
+        pageSelector.addEventListener('input', function() {
+            pageNumberDisplay.textContent = `Page: ${this.value}`;
+            loadPage(this.value);
+        });
+        pageInput.addEventListener('change', function() {
+            pageSelector.value = this.value;
+            loadPage(this.value);
+        });
+
+        loadPage(1);
+        loadExtractedItems(); // Load existing items on page load
+    </script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+    "input": {
+        "Page 16": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 1863.498697633691,
+                    "y": 340.54290240787174,
+                    "width": 438.6112812157042,
+                    "height": 73.10187512317228
+                },
+                "img_path": "/home/suman/projects/the-soap-factory-project/data/instance/input/extracted_page16_1863.498697633691_340.54290240787174.png"
+            },
+            {
+                "line_item": 2,
+                "coordinates": {
+                    "x": 1450.0536489625506,
+                    "y": 106.8565705502706,
+                    "width": 360.71583726317044,
+                    "height": 301.7949245298437
+                },
+                "img_path": "/home/suman/projects/the-soap-factory-project/data/instance/input/extracted_page16_1450.0536489625506_106.8565705502706.png"
+            },
+            {
+                "line_item": 3,
+                "coordinates": {
+                    "x": 1612.835153632589,
+                    "y": 93.87399655818166,
+                    "width": 54.127343903965354,
+                    "height": 16.178281465551493
+                },
+                "img_path": "/home/suman/projects/the-soap-factory-project/data/instance/input/extracted_page16_1612.835153632589_93.87399655818166.png"
+            },
+            {
+                "line_item": 4,
+                "coordinates": {
+                    "x": 1419.0952032891078,
+                    "y": 244.6715867739841,
+                    "width": 47.13672713899438,
+                    "height": 48.135386676847375
+                },
+                "img_path": "/home/suman/projects/the-soap-factory-project/data/instance/input/extracted_page16_1419.0952032891078_244.6715867739841.png"
+            }
+        ]
+    }
+}
