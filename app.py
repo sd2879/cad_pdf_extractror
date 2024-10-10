@@ -2,6 +2,8 @@ import os
 import json
 from flask import Flask, render_template, request, jsonify
 import fitz  # PyMuPDF
+from ocr import get_ocr_results
+from PIL import Image
 
 app = Flask(__name__)
 
@@ -48,10 +50,17 @@ def extract_bbox(page_num):
         bbox = fitz.Rect(x, y, x + width, y + height)
         pix = page.get_pixmap(clip=bbox)
 
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        doubled_size = (img.width * 2, img.height * 2)
+        resized_img = img.resize(doubled_size, Image.LANCZOS)
+
         # Save the extracted image as a PNG
         img_filename = f"extracted_page{page_num}_{x}_{y}.png"
         img_path = os.path.join(save_directory, img_filename)
-        pix.save(img_path)
+        resized_img.save(img_path)
+
+        ocr_text = get_ocr_results(img_path)
+        print(ocr_text)
 
         # Format the page key as "Page {number}"
         page_key = f"Page {page_num}"
@@ -63,7 +72,8 @@ def extract_bbox(page_num):
         extracted_data[pdf_name][page_key].append({
             "line_item": line_item_number,
             "coordinates": {"x": x, "y": y, "width": width, "height": height},
-            "img_path": img_path
+            "img_path": img_path,
+            "ocr_text" : ocr_text
         })
 
         # Save updated data back to the JSON file

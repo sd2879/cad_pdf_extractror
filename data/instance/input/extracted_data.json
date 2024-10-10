@@ -1,3 +1,19 @@
 {
-    "input": {}
+    "input": {
+        "Page 1": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 1395.3221606762102,
+                    "y": 314.62167545669735,
+                    "width": 50.805576290995056,
+                    "height": 42.81518453336464
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_1395.3221606762102_314.62167545669735.png",
+                "ocr_text": [
+                    "303"
+                ]
+            }
+        ]
+    }
 }
