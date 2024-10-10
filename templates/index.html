@@ -189,18 +189,34 @@
             <form id="metadataForm">
                 <!-- Metadata fields -->
                 <div class="metadata-field">
-                    <label for="metadataField1">Field 1:</label>
-                    <input type="text" id="metadataField1" name="metadataField1" required>
-                    <button type="button" class="ocr-button" data-field="metadataField1">Perform OCR</button>
+                    <label for="lengthField">LENGTH:</label>
+                    <input type="text" id="lengthField" name="lengthField" required>
+                    <button type="button" class="ocr-button" data-field="lengthField">Perform OCR</button>
                 </div>
 
                 <div class="metadata-field">
-                    <label for="metadataField2">Field 2:</label>
-                    <input type="text" id="metadataField2" name="metadataField2" required>
-                    <button type="button" class="ocr-button" data-field="metadataField2">Perform OCR</button>
+                    <label for="breadthField">BREDTH:</label>
+                    <input type="text" id="breadthField" name="breadthField" required>
+                    <button type="button" class="ocr-button" data-field="breadthField">Perform OCR</button>
                 </div>
 
-                <!-- Add more fields as needed -->
+                <div class="metadata-field">
+                    <label for="heightField">HEIGHT:</label>
+                    <input type="text" id="heightField" name="heightField" required>
+                    <button type="button" class="ocr-button" data-field="heightField">Perform OCR</button>
+                </div>
+
+                <div class="metadata-field">
+                    <label for="paintCostField">PAINT COST:</label>
+                    <input type="text" id="paintCostField" name="paintCostField" required>
+                    <!-- No OCR button for this field -->
+                </div>
+
+                <div class="metadata-field">
+                    <label for="noteField">NOTE:</label>
+                    <input type="text" id="noteField" name="noteField">
+                    <!-- No OCR button for this field -->
+                </div>
 
                 <input type="submit" value="Submit">
             </form>
@@ -634,9 +650,11 @@
                     imageBbox.style.display = 'none';
 
                     // Clear previous metadata fields
-                    document.getElementById('metadataField1').value = itemData.metadata.metadataField1 || '';
-                    document.getElementById('metadataField2').value = itemData.metadata.metadataField2 || '';
-                    // Add more fields as needed
+                    document.getElementById('lengthField').value = itemData.metadata.lengthField || '';
+                    document.getElementById('breadthField').value = itemData.metadata.breadthField || '';
+                    document.getElementById('heightField').value = itemData.metadata.heightField || '';
+                    document.getElementById('paintCostField').value = itemData.metadata.paintCostField || '';
+                    document.getElementById('noteField').value = itemData.metadata.noteField || '';
 
                     // Set up OCR buttons
                     setUpOcrButtons();
@@ -775,16 +793,21 @@
             const lineItem = modal.dataset.lineItem;
 
             // Get the metadata fields
-            const metadataField1 = document.getElementById('metadataField1').value;
-            const metadataField2 = document.getElementById('metadataField2').value;
-            // Add more fields as needed
+            const lengthField = document.getElementById('lengthField').value;
+            const breadthField = document.getElementById('breadthField').value;
+            const heightField = document.getElementById('heightField').value;
+            const paintCostField = document.getElementById('paintCostField').value;
+            const noteField = document.getElementById('noteField').value;
 
             // Prepare the data to send to the server
             const metadata = {
                 pageNum: pageNum,
                 lineItem: lineItem,
-                metadataField1: metadataField1,
-                metadataField2: metadataField2
+                lengthField: lengthField,
+                breadthField: breadthField,
+                heightField: heightField,
+                paintCostField: paintCostField,
+                noteField: noteField
                 // Add more fields as needed
             };
 

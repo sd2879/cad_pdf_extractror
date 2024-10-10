@@ -167,8 +167,11 @@ def submit_metadata():
         if item:
             # Update the metadata fields
             item['metadata'] = {
-                'metadataField1': data.get('metadataField1'),
-                'metadataField2': data.get('metadataField2'),
+                'lengthField': data.get('lengthField'),
+                'breadthField': data.get('breadthField'),
+                'heightField': data.get('heightField'),
+                'paintCostField': data.get('paintCostField'),
+                'noteField': data.get('noteField')
                 # Add more fields as needed
             }
             # Save updated data back to the JSON file
