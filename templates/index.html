@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>LJF- Cost Estimator Application</title>
+    <title>LJF - Cost Estimator Application</title>
     <style>
         body {
             display: flex;
@@ -49,6 +49,50 @@
         .line-item button {
             margin-left: 10px;
         }
+        /* Modal styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%;
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black with opacity */
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; /* Center the modal */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 50%; /* Adjust as needed */
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+        }
+        /* Additional styles */
+        .line-item button {
+            margin: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        /* BBox label styles */
+        .bbox-label {
+            position: absolute;
+            background-color: white;
+            padding: 2px 5px;
+            border: 1px solid black;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -77,11 +121,38 @@
         <div id="lineItems"></div>
     </div>
 
+    <!-- Metadata Form Modal -->
+    <div id="metadataModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="metadataModalClose">&times;</span>
+            <h2>Enter Metadata</h2>
+            <form id="metadataForm">
+                <!-- Metadata fields -->
+                <label for="metadataField1">LENGTH:</label>
+                <input type="text" id="metadataField1" name="metadataField1" required>
+
+                <label for="metadataField2">WIDTH:</label>
+                <input type="text" id="metadataField2" name="metadataField2" required>
+
+                <label for="metadataField3">HEIGHT:</label>
+                <input type="text" id="metadataField3" name="metadataField3" required>
+                
+                <label for="metadataField4">PAINT COST:</label>
+                <input type="text" id="metadataField4" name="metadataField4" required>
+
+                <!-- Add more fields as needed -->
+
+                <input type="submit" value="Submit">
+            </form>
+        </div>
+    </div>
+
     <script>
         const pageSelector = document.getElementById('pageSelector');
         const pageNumberDisplay = document.getElementById('pageNumberDisplay');
         const pageInput = document.getElementById('pageInput');
         const pdfCanvas = document.getElementById('pdfCanvas');
+        const pdfDisplay = document.getElementById('pdfDisplay');
         const bbox = document.getElementById('bbox');
         const extractBtn = document.getElementById('extractBtn');
         const lineItemsContainer = document.getElementById('lineItems');
@@ -99,7 +170,7 @@
                                 addLineItem(page, item.line_item, pageNum);
 
                                 // Render the bbox on the canvas for each extracted item
-                                renderStoredBBox(item.coordinates);
+                                renderStoredBBox(item.coordinates, item.line_item);
                             });
                         }
                     }
@@ -107,7 +178,7 @@
                 .catch(error => console.error('Error loading extracted items:', error));
         }
 
-        function renderStoredBBox(coords) {
+        function renderStoredBBox(coords, lineItemNumber) {
             const bboxElement = document.createElement('div');
             bboxElement.classList.add('stored-bbox');
             bboxElement.style.position = 'absolute';
@@ -118,8 +189,15 @@
             bboxElement.style.width = coords.width + 'px';
             bboxElement.style.height = coords.height + 'px';
             pdfDisplay.appendChild(bboxElement);
-        }
 
+            // Create label element for the line item number
+            const labelElement = document.createElement('div');
+            labelElement.classList.add('bbox-label');
+            labelElement.style.left = coords.x + 'px';
+            labelElement.style.top = (coords.y - 20) + 'px';  // Position above the bbox
+            labelElement.textContent = `Item ${lineItemNumber}`;
+            pdfDisplay.appendChild(labelElement);
+        }
 
         function loadPage(pageNum) {
             fetch(`/get_page/${pageNum}`)
@@ -138,6 +216,8 @@
                 })
                 .catch(error => console.error('Error:', error));
         }
+
+        let startX, startY, endX, endY;
 
         function startDrawing(event) {
             startX = event.offsetX;
@@ -188,11 +268,6 @@
             // Create label element for the line item number
             const labelElement = document.createElement('div');
             labelElement.classList.add('bbox-label');
-            labelElement.style.position = 'absolute';
-            labelElement.style.backgroundColor = 'white';
-            labelElement.style.padding = '2px 5px';
-            labelElement.style.border = '1px solid black';
-            labelElement.style.fontSize = '12px';
             labelElement.style.left = coords.x + 'px';
             labelElement.style.top = (coords.y - 20) + 'px';  // Position above the bbox
             labelElement.textContent = `Item ${lineItemNumber}`;
@@ -241,13 +316,25 @@
             const lineItemDiv = document.createElement('div');
             lineItemDiv.classList.add('line-item');
             lineItemDiv.id = `page-${pageNum}-item-${lineItem}`;
-            lineItemDiv.innerHTML = `
-                -- Line item ${lineItem} 
-                <button onclick="deleteLineItem('${page}', ${lineItem}, ${pageNum})">Delete</button>
-            `;
+
+            // Create the line item button
+            const lineItemButton = document.createElement('button');
+            lineItemButton.innerText = `Line item ${lineItem}`;
+            lineItemButton.onclick = function() {
+                openMetadataForm(pageNum, lineItem);
+            };
+
+            // Create the delete button
+            const deleteButton = document.createElement('button');
+            deleteButton.innerText = 'Delete';
+            deleteButton.onclick = function() {
+                deleteLineItem(page, lineItem, pageNum);
+            };
+
+            lineItemDiv.appendChild(lineItemButton);
+            lineItemDiv.appendChild(deleteButton);
             lineItemsContainer.appendChild(lineItemDiv);
         }
-
 
         function deleteLineItem(page, lineItem, pageNum) {
             fetch(`/delete_line_item/${pageNum}/${lineItem}`, { method: 'DELETE' })
@@ -337,6 +424,77 @@
 
         loadPage(1);
         loadExtractedItems(); // Load existing items on page load
+
+        // Metadata Modal Functions
+        function openMetadataForm(pageNum, lineItem) {
+            const modal = document.getElementById('metadataModal');
+            modal.style.display = 'block';
+
+            // Store the pageNum and lineItem in the modal for later use
+            modal.dataset.pageNum = pageNum;
+            modal.dataset.lineItem = lineItem;
+        }
+
+        function closeMetadataForm() {
+            const modal = document.getElementById('metadataModal');
+            modal.style.display = 'none';
+        }
+
+        // Close the modal when the user clicks on the close button
+        document.getElementById('metadataModalClose').onclick = function() {
+            closeMetadataForm();
+        };
+
+        // Close the modal when the user clicks outside of the modal content
+        window.onclick = function(event) {
+            const modal = document.getElementById('metadataModal');
+            if (event.target == modal) {
+                closeMetadataForm();
+            }
+        };
+
+        // Handle form submission
+        document.getElementById('metadataForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const modal = document.getElementById('metadataModal');
+            const pageNum = modal.dataset.pageNum;
+            const lineItem = modal.dataset.lineItem;
+
+            // Get the metadata fields
+            const metadataField1 = document.getElementById('metadataField1').value;
+            const metadataField2 = document.getElementById('metadataField2').value;
+            const metadataField3 = document.getElementById('metadataField3').value;
+            const metadataField4 = document.getElementById('metadataField4').value;
+            // Add more fields as needed
+
+            // Prepare the data to send to the server
+            const metadata = {
+                pageNum: pageNum,
+                lineItem: lineItem,
+                metadataField1: metadataField1,
+                metadataField2: metadataField2,
+                metadataField3: metadataField3,
+                metadataField4: metadataField4,
+                // Add more fields as needed
+            };
+
+            // Send the metadata to the server
+            fetch('/submit_metadata', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(metadata)
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('Metadata submitted successfully');
+                closeMetadataForm();
+            })
+            .catch(error => {
+                console.error('Error submitting metadata:', error);
+                alert('Error submitting metadata');
+            });
+        });
     </script>
 </body>
 </html>

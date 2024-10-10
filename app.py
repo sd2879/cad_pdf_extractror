@@ -41,7 +41,6 @@ def get_page(page_num):
     else:
         return jsonify({'error': 'Page not found'}), 404
 
-
 @app.route('/extract_bbox/<int:page_num>', methods=['POST'])
 def extract_bbox(page_num):
     if 1 <= page_num <= pdf_document.page_count:
@@ -68,7 +67,7 @@ def extract_bbox(page_num):
         # Format the page key as "Page {number}"
         page_key = f"Page {page_num}"
 
-        # Update the extracted data dictionary with metadata fields
+        # Update the extracted data dictionary without metadata fields
         if page_key not in extracted_data[pdf_name]:
             extracted_data[pdf_name][page_key] = []
         line_item_number = len(extracted_data[pdf_name][page_key]) + 1
@@ -77,13 +76,8 @@ def extract_bbox(page_num):
             "coordinates": {"x": x, "y": y, "width": width, "height": height},
             "img_path": img_path,
             "ocr_text": ocr_text,
-            # Metadata fields
-            "metadata": {
-                "length": data.get("length", None),
-                "width": data.get("width", None),
-                "height": data.get("height", None),
-                "cost": data.get("cost", None)
-            }
+            # Initialize metadata as an empty dictionary
+            "metadata": {}
         })
 
         # Save updated data back to the JSON file
@@ -94,6 +88,35 @@ def extract_bbox(page_num):
     else:
         return jsonify({'error': 'Page not found'}), 404
 
+# New route to handle metadata submission
+@app.route('/submit_metadata', methods=['POST'])
+def submit_metadata():
+    data = request.get_json()
+    page_num = data.get('pageNum')
+    line_item = data.get('lineItem')
+    page_key = f"Page {page_num}"
+
+    if page_key in extracted_data[pdf_name]:
+        line_items = extracted_data[pdf_name][page_key]
+        # Find the line item in the list
+        item = next((item for item in line_items if item["line_item"] == int(line_item)), None)
+        if item:
+            # Update the metadata fields
+            item['metadata'] = {
+                'metadataField1': data.get('metadataField1'),
+                'metadataField2': data.get('metadataField2'),
+                'metadataField3': data.get('metadataField3'),
+                'metadataField4': data.get('metadataField4'),
+                # Add more fields as needed
+            }
+            # Save updated data back to the JSON file
+            with open(json_path, 'w') as json_file:
+                json.dump(extracted_data, json_file, indent=4)
+            return jsonify({'success': True, 'message': 'Metadata saved successfully'}), 200
+        else:
+            return jsonify({'success': False, 'message': 'Line item not found'}), 404
+    else:
+        return jsonify({'success': False, 'message': 'Page not found'}), 404
 
 @app.route('/delete_line_item/<int:page_num>/<int:line_item>', methods=['DELETE'])
 def delete_line_item(page_num, line_item):
