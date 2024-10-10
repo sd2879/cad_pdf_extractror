@@ -35,9 +35,12 @@ def get_page(page_num):
     if 1 <= page_num <= pdf_document.page_count:
         page = pdf_document.load_page(page_num - 1)
         svg_image = page.get_svg_image()
+        
+        print(page.rect) 
         return jsonify({'svg_data': svg_image})
     else:
         return jsonify({'error': 'Page not found'}), 404
+
 
 @app.route('/extract_bbox/<int:page_num>', methods=['POST'])
 def extract_bbox(page_num):
