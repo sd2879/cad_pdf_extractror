@@ -56,7 +56,7 @@
         .modal {
             display: none; /* Hidden by default */
             position: fixed;
-            z-index: 1; /* Sit on top */
+            z-index: 10; /* Sit on top */
             left: 0;
             top: 0;
             width: 100%; 
@@ -66,10 +66,12 @@
         }
         .modal-content {
             background-color: #fefefe;
-            margin: 15% auto; /* Center the modal */
+            margin: 2% auto; /* Center the modal */
             padding: 20px;
             border: 1px solid #888;
-            width: 50%; /* Adjust as needed */
+            width: 80%; /* Adjust as needed */
+            max-height: 90%;
+            overflow-y: auto;
         }
         .close-button {
             color: #aaa;
@@ -105,6 +107,45 @@
         .stored-bbox {
             cursor: pointer;
         }
+        /* Styles for image drawing in the modal */
+        #imageContainer {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        #lineItemImage {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        #imageBbox {
+            position: absolute;
+            border: 2px dashed red;
+            display: none;
+        }
+        /* Adjust form styles in the modal */
+        #metadataForm label {
+            display: block;
+            margin-top: 10px;
+        }
+        #metadataForm input[type="text"] {
+            width: 150px; /* Smaller width for short inputs */
+            padding: 5px;
+            margin-top: 5px;
+            margin-right: 10px;
+        }
+        #metadataForm .metadata-field {
+            display: flex;
+            align-items: center;
+        }
+        #metadataForm .ocr-button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        #metadataForm input[type="submit"] {
+            margin-top: 15px;
+            padding: 10px 20px;
+        }
     </style>
 </head>
 <body>
@@ -138,13 +179,26 @@
         <div class="modal-content">
             <span class="close-button" id="metadataModalClose">&times;</span>
             <h2>Enter Metadata</h2>
+
+            <!-- Image for OCR -->
+            <div id="imageContainer">
+                <img id="lineItemImage" src="" alt="Line Item Image">
+                <div id="imageBbox"></div>
+            </div>
+
             <form id="metadataForm">
                 <!-- Metadata fields -->
-                <label for="metadataField1">Metadata Field 1:</label>
-                <input type="text" id="metadataField1" name="metadataField1" required>
+                <div class="metadata-field">
+                    <label for="metadataField1">Field 1:</label>
+                    <input type="text" id="metadataField1" name="metadataField1" required>
+                    <button type="button" class="ocr-button" data-field="metadataField1">Perform OCR</button>
+                </div>
 
-                <label for="metadataField2">Metadata Field 2:</label>
-                <input type="text" id="metadataField2" name="metadataField2" required>
+                <div class="metadata-field">
+                    <label for="metadataField2">Field 2:</label>
+                    <input type="text" id="metadataField2" name="metadataField2" required>
+                    <button type="button" class="ocr-button" data-field="metadataField2">Perform OCR</button>
+                </div>
 
                 <!-- Add more fields as needed -->
 
@@ -558,6 +612,140 @@
             // Store the pageNum and lineItem in the modal for later use
             modal.dataset.pageNum = pageNum;
             modal.dataset.lineItem = lineItem;
+
+            // Fetch the line item data from the server
+            fetch('/get_line_item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pageNum: pageNum, lineItem: lineItem })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const itemData = data.line_item_data;
+                    const imgPath = itemData.img_path;
+
+                    // Set the image source in the modal
+                    const lineItemImage = document.getElementById('lineItemImage');
+                    lineItemImage.src = '/get_image/' + encodeURIComponent(imgPath);
+
+                    // Clear previous bounding box
+                    const imageBbox = document.getElementById('imageBbox');
+                    imageBbox.style.display = 'none';
+
+                    // Clear previous metadata fields
+                    document.getElementById('metadataField1').value = itemData.metadata.metadataField1 || '';
+                    document.getElementById('metadataField2').value = itemData.metadata.metadataField2 || '';
+                    // Add more fields as needed
+
+                    // Set up OCR buttons
+                    setUpOcrButtons();
+
+                } else {
+                    alert('Error fetching line item data');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching line item data:', error);
+                alert('Error fetching line item data');
+            });
+        }
+
+        function setUpOcrButtons() {
+            const ocrButtons = document.querySelectorAll('.ocr-button');
+            ocrButtons.forEach(button => {
+                button.onclick = function() {
+                    const fieldId = this.dataset.field;
+                    initiateOcr(fieldId);
+                };
+            });
+        }
+
+        function initiateOcr(fieldId) {
+            const lineItemImage = document.getElementById('lineItemImage');
+            const imageBbox = document.getElementById('imageBbox');
+            imageBbox.style.display = 'none';
+
+            let startX, startY, endX, endY;
+            let isDrawing = false;
+
+            lineItemImage.style.cursor = 'crosshair';
+
+            lineItemImage.onmousedown = function(event) {
+                const rect = lineItemImage.getBoundingClientRect();
+                startX = event.clientX - rect.left;
+                startY = event.clientY - rect.top;
+                imageBbox.style.left = startX + 'px';
+                imageBbox.style.top = startY + 'px';
+                imageBbox.style.width = '0px';
+                imageBbox.style.height = '0px';
+                imageBbox.style.display = 'block';
+                isDrawing = true;
+
+                lineItemImage.onmousemove = function(event) {
+                    if (!isDrawing) return;
+                    const rect = lineItemImage.getBoundingClientRect();
+                    endX = event.clientX - rect.left;
+                    endY = event.clientY - rect.top;
+                    imageBbox.style.left = Math.min(startX, endX) + 'px';
+                    imageBbox.style.top = Math.min(startY, endY) + 'px';
+                    imageBbox.style.width = Math.abs(endX - startX) + 'px';
+                    imageBbox.style.height = Math.abs(endY - startY) + 'px';
+                };
+
+                lineItemImage.onmouseup = function(event) {
+                    isDrawing = false;
+                    lineItemImage.onmousemove = null;
+                    lineItemImage.onmouseup = null;
+                    lineItemImage.style.cursor = 'default';
+
+                    // Perform OCR after drawing the bounding box
+                    performOcr(fieldId);
+                };
+            };
+        }
+
+        function performOcr(fieldId) {
+            const imageBbox = document.getElementById('imageBbox');
+            const lineItemImage = document.getElementById('lineItemImage');
+
+            // Get the bounding box coordinates relative to the image
+            const x = parseInt(imageBbox.style.left);
+            const y = parseInt(imageBbox.style.top);
+            const width = parseInt(imageBbox.style.width);
+            const height = parseInt(imageBbox.style.height);
+
+            const modal = document.getElementById('metadataModal');
+            const pageNum = modal.dataset.pageNum;
+            const lineItem = modal.dataset.lineItem;
+
+            // Send the bounding box coordinates to the server
+            fetch('/perform_ocr', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pageNum: pageNum, lineItem: lineItem, x: x, y: y, width: width, height: height })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const ocrText = data.ocr_text;
+                    // Populate the metadata field with the OCR text
+                    document.getElementById(fieldId).value = ocrText;
+                    imageBbox.style.display = 'none';
+                } else {
+                    alert('Error performing OCR: ' + data.message);
+                    imageBbox.style.display = 'none';
+                }
+                // Reset cursor
+                lineItemImage.style.cursor = 'default';
+            })
+            .catch(error => {
+                console.error('Error performing OCR:', error);
+                alert('Error performing OCR');
+                imageBbox.style.display = 'none';
+                // Reset cursor
+                lineItemImage.style.cursor = 'default';
+            });
         }
 
         function closeMetadataForm() {
@@ -608,8 +796,12 @@
             })
             .then(response => response.json())
             .then(data => {
-                alert('Metadata submitted successfully');
-                closeMetadataForm();
+                if (data.success) {
+                    alert('Metadata submitted successfully');
+                    closeMetadataForm();
+                } else {
+                    alert('Error submitting metadata: ' + data.message);
+                }
             })
             .catch(error => {
                 console.error('Error submitting metadata:', error);
