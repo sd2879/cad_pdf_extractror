@@ -31,7 +31,7 @@
             display: none;
         }
         #sidebar {
-            width: 250px;
+            width: 300px;
             background-color: #f0f0f0;
             padding: 10px;
             overflow-y: auto;
@@ -40,6 +40,9 @@
         .page-item {
             font-weight: bold;
             margin-top: 10px;
+            cursor: pointer;
+            color: blue;
+            text-decoration: underline;
         }
         .line-item {
             margin-left: 15px;
@@ -159,26 +162,135 @@
         const bbox = document.getElementById('bbox');
         const extractBtn = document.getElementById('extractBtn');
         const lineItemsContainer = document.getElementById('lineItems');
-        let lineItemCount = {};
+        let extractedItems = {}; // Store all extracted items globally
 
+        /*** Load Extracted Items and Display in Sidebar ***/
         function loadExtractedItems() {
-            fetch('/get_extracted_items')
+            return fetch('/get_extracted_items')
                 .then(response => response.json())
                 .then(data => {
-                    const pdfData = data["{{ pdf_name }}"];
-                    if (pdfData) {
-                        for (const [page, items] of Object.entries(pdfData)) {
-                            const pageNum = page.replace("Page ", "");
-                            items.forEach(item => {
-                                addLineItem(page, item.line_item, pageNum);
-
-                                // Render the bbox on the canvas for each extracted item
-                                renderStoredBBox(item.coordinates, item.line_item, pageNum);
-                            });
-                        }
-                    }
+                    extractedItems = data["{{ pdf_name }}"] || {};
+                    displayLineItems(); // Display all line items in the sidebar
                 })
                 .catch(error => console.error('Error loading extracted items:', error));
+        }
+
+        /*** Display All Line Items in Sidebar ***/
+        function displayLineItems() {
+            // Clear existing line items
+            lineItemsContainer.innerHTML = '';
+
+            for (const [pageKey, items] of Object.entries(extractedItems)) {
+                const pageNum = pageKey.replace("Page ", "");
+                // Create a page header
+                const pageDiv = document.createElement('div');
+                pageDiv.classList.add('page-item');
+                pageDiv.id = `page-header-${pageNum}`;
+                pageDiv.innerText = `Page ${pageNum}`;
+
+                // Add click event to navigate to the page when clicked
+                pageDiv.addEventListener('click', function() {
+                    pageSelector.value = pageNum;
+                    pageNumberDisplay.textContent = `Page: ${pageNum}`;
+                    loadPage(pageNum);
+                });
+
+                lineItemsContainer.appendChild(pageDiv);
+
+                items.forEach(item => {
+                    addLineItemToSidebar(pageNum, item.line_item);
+                });
+            }
+        }
+
+        /*** Load Bounding Boxes for Current Page ***/
+        function loadBoundingBoxesForPage(pageNum) {
+            // Clear existing bounding boxes and labels
+            clearBoundingBoxesAndLabels();
+
+            const pageKey = `Page ${pageNum}`;
+            const items = extractedItems[pageKey];
+
+            if (items) {
+                items.forEach(item => {
+                    // Render the bbox on the canvas for each extracted item
+                    renderStoredBBox(item.coordinates, item.line_item, pageNum);
+                });
+            }
+        }
+
+        /*** Clear Bounding Boxes and Labels ***/
+        function clearBoundingBoxesAndLabels() {
+            // Remove all stored bounding boxes and labels from the PDF display
+            const bboxElements = document.querySelectorAll('.stored-bbox');
+            bboxElements.forEach(function(bboxElement) {
+                bboxElement.remove();
+            });
+
+            const labelElements = document.querySelectorAll('.bbox-label');
+            labelElements.forEach(function(labelElement) {
+                labelElement.remove();
+            });
+        }
+
+        /*** Load Page and Bounding Boxes ***/
+        function loadPage(pageNum) {
+            fetch(`/get_page/${pageNum}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.svg_data) {
+                        const img = new Image();
+                        img.onload = function () {
+                            pdfCanvas.width = img.width;
+                            pdfCanvas.height = img.height;
+                            const ctx = pdfCanvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+
+                            // After the image is loaded, load the bounding boxes for this page
+                            loadBoundingBoxesForPage(pageNum);
+                        };
+                        img.src = 'data:image/svg+xml;base64,' + btoa(data.svg_data);
+                    } else {
+                        // If no svg_data, still load bounding boxes for this page
+                        loadBoundingBoxesForPage(pageNum);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        let startX, startY, endX, endY;
+
+        function startDrawing(event) {
+            startX = event.offsetX;
+            startY = event.offsetY;
+            bbox.style.left = startX + 'px';
+            bbox.style.top = startY + 'px';
+            bbox.style.width = '0';
+            bbox.style.height = '0';
+            bbox.style.display = 'block';
+            extractBtn.style.display = 'none';
+            pdfCanvas.addEventListener('mousemove', draw);
+            pdfCanvas.addEventListener('mouseup', stopDrawing);
+        }
+
+        function draw(event) {
+            endX = event.offsetX;
+            endY = event.offsetY;
+            bbox.style.width = Math.abs(endX - startX) + 'px';
+            bbox.style.height = Math.abs(endY - startY) + 'px';
+            bbox.style.left = Math.min(startX, endX) + 'px';
+            bbox.style.top = Math.min(startY, endY) + 'px';
+        }
+
+        function stopDrawing() {
+            pdfCanvas.removeEventListener('mousemove', draw);
+            pdfCanvas.removeEventListener('mouseup', stopDrawing);
+            
+            const bboxRect = bbox.getBoundingClientRect();
+            const pdfDisplayRect = pdfDisplay.getBoundingClientRect();
+            extractBtn.style.left = (bboxRect.right - pdfDisplayRect.left + 10) + 'px';
+            extractBtn.style.top = (bboxRect.bottom - pdfDisplayRect.top + 10) + 'px';
+            extractBtn.style.display = 'block';
         }
 
         function renderStoredBBox(coords, lineItemNumber, pageNum) {
@@ -220,97 +332,8 @@
             pdfDisplay.appendChild(labelElement);
         }
 
-        function loadPage(pageNum) {
-            fetch(`/get_page/${pageNum}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.svg_data) {
-                        const img = new Image();
-                        img.onload = function () {
-                            pdfCanvas.width = img.width;
-                            pdfCanvas.height = img.height;
-                            const ctx = pdfCanvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0);
-                        };
-                        img.src = 'data:image/svg+xml;base64,' + btoa(data.svg_data);
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        let startX, startY, endX, endY;
-
-        function startDrawing(event) {
-            startX = event.offsetX;
-            startY = event.offsetY;
-            bbox.style.left = startX + 'px';
-            bbox.style.top = startY + 'px';
-            bbox.style.width = '0';
-            bbox.style.height = '0';
-            bbox.style.display = 'block';
-            extractBtn.style.display = 'none';
-            pdfCanvas.addEventListener('mousemove', draw);
-            pdfCanvas.addEventListener('mouseup', stopDrawing);
-        }
-
-        function draw(event) {
-            endX = event.offsetX;
-            endY = event.offsetY;
-            bbox.style.width = Math.abs(endX - startX) + 'px';
-            bbox.style.height = Math.abs(endY - startY) + 'px';
-            bbox.style.left = Math.min(startX, endX) + 'px';
-            bbox.style.top = Math.min(startY, endY) + 'px';
-        }
-
-        function stopDrawing() {
-            pdfCanvas.removeEventListener('mousemove', draw);
-            pdfCanvas.removeEventListener('mouseup', stopDrawing);
-            
-            const bboxRect = bbox.getBoundingClientRect();
-            const pdfDisplayRect = pdfDisplay.getBoundingClientRect();
-            extractBtn.style.left = (bboxRect.right - pdfDisplayRect.left + 10) + 'px';
-            extractBtn.style.top = (bboxRect.bottom - pdfDisplayRect.top + 10) + 'px';
-            extractBtn.style.display = 'block';
-        }
-
-        // Function to render bbox immediately on the canvas
         function renderImmediateBBox(coords, lineItemNumber, pageNum) {
-            const bboxElement = document.createElement('div');
-            bboxElement.classList.add('stored-bbox');
-            bboxElement.style.position = 'absolute';
-            bboxElement.style.border = '2px dashed red';
-            bboxElement.style.pointerEvents = 'auto'; // Allow mouse events
-            bboxElement.style.left = coords.x + 'px';
-            bboxElement.style.top = coords.y + 'px';
-            bboxElement.style.width = coords.width + 'px';
-            bboxElement.style.height = coords.height + 'px';
-
-            // Store line item info in data attributes
-            bboxElement.dataset.pageNum = pageNum;
-            bboxElement.dataset.lineItem = lineItemNumber;
-
-            // Add click event listener to the bbox
-            bboxElement.addEventListener('click', function(event) {
-                event.stopPropagation(); // Prevent event from bubbling up
-                openMetadataForm(pageNum, lineItemNumber);
-            });
-
-            pdfDisplay.appendChild(bboxElement);
-
-            // Create label element for the line item number
-            const labelElement = document.createElement('div');
-            labelElement.classList.add('bbox-label');
-            labelElement.style.left = coords.x + 'px';
-            labelElement.style.top = (coords.y - 20) + 'px';  // Position above the bbox
-            labelElement.textContent = `Item ${lineItemNumber}`;
-
-            // Add click event listener to the label
-            labelElement.addEventListener('click', function(event) {
-                event.stopPropagation(); // Prevent event from bubbling up
-                openMetadataForm(pageNum, lineItemNumber);
-            });
-
-            pdfDisplay.appendChild(labelElement);
+            renderStoredBBox(coords, lineItemNumber, pageNum);
         }
 
         function extractBBoxContents() {
@@ -332,7 +355,20 @@
             .then(response => response.json())
             .then(data => {
                 alert('BBox contents extracted and saved!');
-                addLineItem(data.page, data.line_item, pageNum);
+
+                // Update extractedItems with the new item
+                const pageKey = `Page ${pageNum}`;
+                if (!extractedItems[pageKey]) {
+                    extractedItems[pageKey] = [];
+                }
+                extractedItems[pageKey].push({
+                    "line_item": data.line_item,
+                    "coordinates": { x, y, width, height },
+                    // Add other properties if needed
+                });
+
+                // Update the sidebar with the new line item
+                addLineItemToSidebar(pageNum, data.line_item);
 
                 // Immediately render the newly created bbox with label
                 renderImmediateBBox({ x, y, width, height }, data.line_item, pageNum);
@@ -340,16 +376,24 @@
             .catch(error => console.error('Error:', error));
         }
 
-        function addLineItem(page, lineItem, pageNum) {
-            if (!lineItemCount[pageNum]) {
-                lineItemCount[pageNum] = 1;
-                const pageDiv = document.createElement('div');
+        /*** Add Line Item to Sidebar ***/
+        function addLineItemToSidebar(pageNum, lineItem) {
+            let pageDiv = document.querySelector(`#page-header-${pageNum}`);
+            if (!pageDiv) {
+                // Create a page header if it doesn't exist
+                pageDiv = document.createElement('div');
                 pageDiv.classList.add('page-item');
+                pageDiv.id = `page-header-${pageNum}`;
                 pageDiv.innerText = `Page ${pageNum}`;
-                pageDiv.setAttribute('data-page', pageNum);
+
+                // Add click event to navigate to the page when clicked
+                pageDiv.addEventListener('click', function() {
+                    pageSelector.value = pageNum;
+                    pageNumberDisplay.textContent = `Page: ${pageNum}`;
+                    loadPage(pageNum);
+                });
+
                 lineItemsContainer.appendChild(pageDiv);
-            } else {
-                lineItemCount[pageNum]++;
             }
 
             const lineItemDiv = document.createElement('div');
@@ -367,15 +411,15 @@
             const deleteButton = document.createElement('button');
             deleteButton.innerText = 'Delete';
             deleteButton.onclick = function() {
-                deleteLineItem(page, lineItem, pageNum);
+                deleteLineItem(pageNum, lineItem);
             };
 
             lineItemDiv.appendChild(lineItemButton);
             lineItemDiv.appendChild(deleteButton);
-            lineItemsContainer.appendChild(lineItemDiv);
+            pageDiv.appendChild(lineItemDiv);
         }
 
-        function deleteLineItem(page, lineItem, pageNum) {
+        function deleteLineItem(pageNum, lineItem) {
             fetch(`/delete_line_item/${pageNum}/${lineItem}`, { method: 'DELETE' })
                 .then(response => response.json())
                 .then(data => {
@@ -383,8 +427,23 @@
                         alert('Line item deleted');
                         document.getElementById(`page-${pageNum}-item-${lineItem}`).remove();
 
-                        // Remove the bbox and label from the PDF display
-                        removeBBoxAndLabel(pageNum, lineItem);
+                        // Remove the bbox and label from the PDF display if on the current page
+                        if (pageSelector.value === pageNum.toString()) {
+                            removeBBoxAndLabel(pageNum, lineItem);
+                        }
+
+                        // Remove the item from extractedItems
+                        const pageKey = `Page ${pageNum}`;
+                        if (extractedItems[pageKey]) {
+                            extractedItems[pageKey] = extractedItems[pageKey].filter(function(item) {
+                                return item.line_item !== lineItem;
+                            });
+                            if (extractedItems[pageKey].length === 0) {
+                                delete extractedItems[pageKey];
+                                // Remove the page header if no items left
+                                document.getElementById(`page-header-${pageNum}`).remove();
+                            }
+                        }
                     } else {
                         alert('Error deleting line item');
                     }
@@ -471,17 +530,25 @@
         pdfCanvas.addEventListener('mousedown', startDrawing);
         extractBtn.addEventListener('click', extractBBoxContents);
 
+        /*** Load extracted items and first page on page load ***/
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load extracted items first
+            loadExtractedItems().then(function() {
+                // Then load the first page
+                loadPage(1);
+            });
+        });
+
         pageSelector.addEventListener('input', function() {
             pageNumberDisplay.textContent = `Page: ${this.value}`;
             loadPage(this.value);
         });
+
         pageInput.addEventListener('change', function() {
             pageSelector.value = this.value;
+            pageNumberDisplay.textContent = `Page: ${this.value}`;
             loadPage(this.value);
         });
-
-        loadPage(1);
-        loadExtractedItems(); // Load existing items on page load
 
         // Metadata Modal Functions
         function openMetadataForm(pageNum, lineItem) {
