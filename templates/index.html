@@ -88,10 +88,19 @@
         /* BBox label styles */
         .bbox-label {
             position: absolute;
-            background-color: white;
-            padding: 2px 5px;
-            border: 1px solid black;
-            font-size: 12px;
+            background-color: rgba(255, 255, 0, 0.8); /* Semi-transparent yellow background */
+            padding: 4px 8px;
+            border: 2px solid blue;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            color: red;
+            pointer-events: auto; /* Allow mouse events */
+            cursor: pointer;
+        }
+        /* Make bounding boxes clickable */
+        .stored-bbox {
+            cursor: pointer;
         }
     </style>
 </head>
@@ -128,17 +137,11 @@
             <h2>Enter Metadata</h2>
             <form id="metadataForm">
                 <!-- Metadata fields -->
-                <label for="metadataField1">LENGTH:</label>
+                <label for="metadataField1">Metadata Field 1:</label>
                 <input type="text" id="metadataField1" name="metadataField1" required>
 
-                <label for="metadataField2">WIDTH:</label>
+                <label for="metadataField2">Metadata Field 2:</label>
                 <input type="text" id="metadataField2" name="metadataField2" required>
-
-                <label for="metadataField3">HEIGHT:</label>
-                <input type="text" id="metadataField3" name="metadataField3" required>
-                
-                <label for="metadataField4">PAINT COST:</label>
-                <input type="text" id="metadataField4" name="metadataField4" required>
 
                 <!-- Add more fields as needed -->
 
@@ -170,7 +173,7 @@
                                 addLineItem(page, item.line_item, pageNum);
 
                                 // Render the bbox on the canvas for each extracted item
-                                renderStoredBBox(item.coordinates, item.line_item);
+                                renderStoredBBox(item.coordinates, item.line_item, pageNum);
                             });
                         }
                     }
@@ -178,16 +181,27 @@
                 .catch(error => console.error('Error loading extracted items:', error));
         }
 
-        function renderStoredBBox(coords, lineItemNumber) {
+        function renderStoredBBox(coords, lineItemNumber, pageNum) {
             const bboxElement = document.createElement('div');
             bboxElement.classList.add('stored-bbox');
             bboxElement.style.position = 'absolute';
             bboxElement.style.border = '2px dashed red';
-            bboxElement.style.pointerEvents = 'none';
+            bboxElement.style.pointerEvents = 'auto'; // Allow mouse events
             bboxElement.style.left = coords.x + 'px';
             bboxElement.style.top = coords.y + 'px';
             bboxElement.style.width = coords.width + 'px';
             bboxElement.style.height = coords.height + 'px';
+
+            // Store line item info in data attributes
+            bboxElement.dataset.pageNum = pageNum;
+            bboxElement.dataset.lineItem = lineItemNumber;
+
+            // Add click event listener to the bbox
+            bboxElement.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent event from bubbling up
+                openMetadataForm(pageNum, lineItemNumber);
+            });
+
             pdfDisplay.appendChild(bboxElement);
 
             // Create label element for the line item number
@@ -196,6 +210,13 @@
             labelElement.style.left = coords.x + 'px';
             labelElement.style.top = (coords.y - 20) + 'px';  // Position above the bbox
             labelElement.textContent = `Item ${lineItemNumber}`;
+
+            // Add click event listener to the label
+            labelElement.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent event from bubbling up
+                openMetadataForm(pageNum, lineItemNumber);
+            });
+
             pdfDisplay.appendChild(labelElement);
         }
 
@@ -246,23 +267,34 @@
             pdfCanvas.removeEventListener('mouseup', stopDrawing);
             
             const bboxRect = bbox.getBoundingClientRect();
-            const pdfDisplayRect = document.getElementById('pdfDisplay').getBoundingClientRect();
+            const pdfDisplayRect = pdfDisplay.getBoundingClientRect();
             extractBtn.style.left = (bboxRect.right - pdfDisplayRect.left + 10) + 'px';
             extractBtn.style.top = (bboxRect.bottom - pdfDisplayRect.top + 10) + 'px';
             extractBtn.style.display = 'block';
         }
 
         // Function to render bbox immediately on the canvas
-        function renderImmediateBBox(coords, lineItemNumber) {
+        function renderImmediateBBox(coords, lineItemNumber, pageNum) {
             const bboxElement = document.createElement('div');
             bboxElement.classList.add('stored-bbox');
             bboxElement.style.position = 'absolute';
             bboxElement.style.border = '2px dashed red';
-            bboxElement.style.pointerEvents = 'none';
+            bboxElement.style.pointerEvents = 'auto'; // Allow mouse events
             bboxElement.style.left = coords.x + 'px';
             bboxElement.style.top = coords.y + 'px';
             bboxElement.style.width = coords.width + 'px';
             bboxElement.style.height = coords.height + 'px';
+
+            // Store line item info in data attributes
+            bboxElement.dataset.pageNum = pageNum;
+            bboxElement.dataset.lineItem = lineItemNumber;
+
+            // Add click event listener to the bbox
+            bboxElement.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent event from bubbling up
+                openMetadataForm(pageNum, lineItemNumber);
+            });
+
             pdfDisplay.appendChild(bboxElement);
 
             // Create label element for the line item number
@@ -271,6 +303,13 @@
             labelElement.style.left = coords.x + 'px';
             labelElement.style.top = (coords.y - 20) + 'px';  // Position above the bbox
             labelElement.textContent = `Item ${lineItemNumber}`;
+
+            // Add click event listener to the label
+            labelElement.addEventListener('click', function(event) {
+                event.stopPropagation(); // Prevent event from bubbling up
+                openMetadataForm(pageNum, lineItemNumber);
+            });
+
             pdfDisplay.appendChild(labelElement);
         }
 
@@ -296,7 +335,7 @@
                 addLineItem(data.page, data.line_item, pageNum);
 
                 // Immediately render the newly created bbox with label
-                renderImmediateBBox({ x, y, width, height }, data.line_item);
+                renderImmediateBBox({ x, y, width, height }, data.line_item, pageNum);
             })
             .catch(error => console.error('Error:', error));
         }
@@ -343,11 +382,30 @@
                     if (data.success) {
                         alert('Line item deleted');
                         document.getElementById(`page-${pageNum}-item-${lineItem}`).remove();
+
+                        // Remove the bbox and label from the PDF display
+                        removeBBoxAndLabel(pageNum, lineItem);
                     } else {
                         alert('Error deleting line item');
                     }
                 })
                 .catch(error => console.error('Error:', error));
+        }
+
+        function removeBBoxAndLabel(pageNum, lineItemNumber) {
+            const bboxElements = document.querySelectorAll('.stored-bbox');
+            bboxElements.forEach(function(bboxElement) {
+                if (bboxElement.dataset.pageNum === pageNum && bboxElement.dataset.lineItem === lineItemNumber.toString()) {
+                    bboxElement.remove();
+                }
+            });
+
+            const labelElements = document.querySelectorAll('.bbox-label');
+            labelElements.forEach(function(labelElement) {
+                if (labelElement.dataset.pageNum === pageNum && labelElement.dataset.lineItem === lineItemNumber.toString()) {
+                    labelElement.remove();
+                }
+            });
         }
 
         function cancelSelection() {
@@ -387,7 +445,7 @@
 
         function updateExtractButtonPosition() {
             const bboxRect = bbox.getBoundingClientRect();
-            const pdfDisplayRect = document.getElementById('pdfDisplay').getBoundingClientRect();
+            const pdfDisplayRect = pdfDisplay.getBoundingClientRect();
             extractBtn.style.left = (bboxRect.right - pdfDisplayRect.left + 10) + 'px';
             extractBtn.style.top = (bboxRect.bottom - pdfDisplayRect.top + 10) + 'px';
         }
@@ -464,8 +522,6 @@
             // Get the metadata fields
             const metadataField1 = document.getElementById('metadataField1').value;
             const metadataField2 = document.getElementById('metadataField2').value;
-            const metadataField3 = document.getElementById('metadataField3').value;
-            const metadataField4 = document.getElementById('metadataField4').value;
             // Add more fields as needed
 
             // Prepare the data to send to the server
@@ -473,9 +529,7 @@
                 pageNum: pageNum,
                 lineItem: lineItem,
                 metadataField1: metadataField1,
-                metadataField2: metadataField2,
-                metadataField3: metadataField3,
-                metadataField4: metadataField4,
+                metadataField2: metadataField2
                 // Add more fields as needed
             };
 

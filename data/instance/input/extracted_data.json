@@ -1,3 +1,86 @@
 {
-    "input": {}
+    "input": {
+        "Page 1": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 852.9266862170088,
+                    "y": 521.3439768554279,
+                    "width": 206.73984080435693,
+                    "height": 123.84415584415584
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_852.9266862170088_521.3439768554279.png",
+                "ocr_text": [
+                    "SECTION",
+                    "A",
+                    "GA-541"
+                ],
+                "metadata": {}
+            }
+        ],
+        "Page 14": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 1410.22538751571,
+                    "y": 117.85169669040637,
+                    "width": 276.6518642647675,
+                    "height": 182.770004189359
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page14_1410.22538751571_117.85169669040637.png",
+                "ocr_text": [
+                    "ALLFANLL",
+                    "376",
+                    "NOTCH",
+                    "NOTCH",
+                    "392"
+                ],
+                "metadata": {
+                    "metadataField1": "111",
+                    "metadataField2": "31313",
+                    "metadataField3": null,
+                    "metadataField4": null
+                }
+            },
+            {
+                "line_item": 3,
+                "coordinates": {
+                    "x": 1914.5906996229576,
+                    "y": 722.0913585060352,
+                    "width": 302.61918726434857,
+                    "height": 237.70087976539588
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page14_1914.5906996229576_722.0913585060352.png",
+                "ocr_text": [
+                    "95",
+                    "NOTCH"
+                ],
+                "metadata": {
+                    "metadataField1": "313131313",
+                    "metadataField2": "AADADA",
+                    "metadataField3": null,
+                    "metadataField4": null
+                }
+            },
+            {
+                "line_item": 3,
+                "coordinates": {
+                    "x": 1836.6887306242145,
+                    "y": 41.94721407624633,
+                    "width": 499.3715961457897,
+                    "height": 122.84541265186427
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page14_1836.6887306242145_41.94721407624633.png",
+                "ocr_text": [
+                    "NOTES",
+                    "GRATINGNOTES:-",
+                    "1.",
+                    "GRATING PANELS TO BE LIONWELDKENNEDY SAFEGRIDTYPE 35BALL",
+                    "PROOE MACHINE SERRATED GRATING OR SIMILARLY APPROVED",
+                    "OLUALEAIT"
+                ],
+                "metadata": {}
+            }
+        ]
+    }
 }
