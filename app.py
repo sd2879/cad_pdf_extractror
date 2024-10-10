@@ -65,7 +65,7 @@ def extract_bbox(page_num):
         # Format the page key as "Page {number}"
         page_key = f"Page {page_num}"
 
-        # Update the extracted data dictionary
+        # Update the extracted data dictionary with metadata fields
         if page_key not in extracted_data[pdf_name]:
             extracted_data[pdf_name][page_key] = []
         line_item_number = len(extracted_data[pdf_name][page_key]) + 1
@@ -73,7 +73,14 @@ def extract_bbox(page_num):
             "line_item": line_item_number,
             "coordinates": {"x": x, "y": y, "width": width, "height": height},
             "img_path": img_path,
-            "ocr_text" : ocr_text
+            "ocr_text": ocr_text,
+            # Metadata fields
+            "metadata": {
+                "length": data.get("length", None),
+                "width": data.get("width", None),
+                "height": data.get("height", None),
+                "cost": data.get("cost", None)
+            }
         })
 
         # Save updated data back to the JSON file
