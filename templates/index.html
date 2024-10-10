@@ -87,7 +87,6 @@
         const lineItemsContainer = document.getElementById('lineItems');
         let lineItemCount = {};
 
-        // Load extracted items from JSON and populate sidebar
         function loadExtractedItems() {
             fetch('/get_extracted_items')
                 .then(response => response.json())
@@ -98,12 +97,29 @@
                             const pageNum = page.replace("Page ", "");
                             items.forEach(item => {
                                 addLineItem(page, item.line_item, pageNum);
+
+                                // Render the bbox on the canvas for each extracted item
+                                renderStoredBBox(item.coordinates);
                             });
                         }
                     }
                 })
                 .catch(error => console.error('Error loading extracted items:', error));
         }
+
+        function renderStoredBBox(coords) {
+            const bboxElement = document.createElement('div');
+            bboxElement.classList.add('stored-bbox');
+            bboxElement.style.position = 'absolute';
+            bboxElement.style.border = '2px dashed red';
+            bboxElement.style.pointerEvents = 'none';
+            bboxElement.style.left = coords.x + 'px';
+            bboxElement.style.top = coords.y + 'px';
+            bboxElement.style.width = coords.width + 'px';
+            bboxElement.style.height = coords.height + 'px';
+            pdfDisplay.appendChild(bboxElement);
+        }
+
 
         function loadPage(pageNum) {
             fetch(`/get_page/${pageNum}`)
@@ -156,6 +172,33 @@
             extractBtn.style.display = 'block';
         }
 
+        // Function to render bbox immediately on the canvas
+        function renderImmediateBBox(coords, lineItemNumber) {
+            const bboxElement = document.createElement('div');
+            bboxElement.classList.add('stored-bbox');
+            bboxElement.style.position = 'absolute';
+            bboxElement.style.border = '2px dashed red';
+            bboxElement.style.pointerEvents = 'none';
+            bboxElement.style.left = coords.x + 'px';
+            bboxElement.style.top = coords.y + 'px';
+            bboxElement.style.width = coords.width + 'px';
+            bboxElement.style.height = coords.height + 'px';
+            pdfDisplay.appendChild(bboxElement);
+
+            // Create label element for the line item number
+            const labelElement = document.createElement('div');
+            labelElement.classList.add('bbox-label');
+            labelElement.style.position = 'absolute';
+            labelElement.style.backgroundColor = 'white';
+            labelElement.style.padding = '2px 5px';
+            labelElement.style.border = '1px solid black';
+            labelElement.style.fontSize = '12px';
+            labelElement.style.left = coords.x + 'px';
+            labelElement.style.top = (coords.y - 20) + 'px';  // Position above the bbox
+            labelElement.textContent = `Item ${lineItemNumber}`;
+            pdfDisplay.appendChild(labelElement);
+        }
+
         function extractBBoxContents() {
             const rect = bbox.getBoundingClientRect();
             const canvasRect = pdfCanvas.getBoundingClientRect();
@@ -176,6 +219,9 @@
             .then(data => {
                 alert('BBox contents extracted and saved!');
                 addLineItem(data.page, data.line_item, pageNum);
+
+                // Immediately render the newly created bbox with label
+                renderImmediateBBox({ x, y, width, height }, data.line_item);
             })
             .catch(error => console.error('Error:', error));
         }

@@ -74,6 +74,7 @@ def extract_bbox(page_num):
     else:
         return jsonify({'error': 'Page not found'}), 404
 
+
 @app.route('/delete_line_item/<int:page_num>/<int:line_item>', methods=['DELETE'])
 def delete_line_item(page_num, line_item):
     page_key = f"Page {page_num}"

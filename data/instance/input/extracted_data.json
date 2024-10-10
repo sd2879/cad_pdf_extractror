@@ -1,45 +1,85 @@
 {
     "input": {
-        "Page 16": [
+        "Page 1": [
             {
                 "line_item": 1,
                 "coordinates": {
-                    "x": 1863.498697633691,
-                    "y": 340.54290240787174,
-                    "width": 438.6112812157042,
-                    "height": 73.10187512317228
+                    "x": 441.2596314907872,
+                    "y": 210.64656616415408,
+                    "width": 225.62144053601338,
+                    "height": 185.68844221105527
                 },
-                "img_path": "/home/suman/projects/the-soap-factory-project/data/instance/input/extracted_page16_1863.498697633691_340.54290240787174.png"
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_441.2596314907872_210.64656616415408.png"
             },
             {
                 "line_item": 2,
                 "coordinates": {
-                    "x": 1450.0536489625506,
-                    "y": 106.8565705502706,
-                    "width": 360.71583726317044,
-                    "height": 301.7949245298437
+                    "x": 977.2485139484545,
+                    "y": 165.8724623998695,
+                    "width": 236.48481929619345,
+                    "height": 156.54629054785363
                 },
-                "img_path": "/home/suman/projects/the-soap-factory-project/data/instance/input/extracted_page16_1450.0536489625506_106.8565705502706.png"
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_977.2485139484545_165.8724623998695.png"
             },
             {
                 "line_item": 3,
                 "coordinates": {
-                    "x": 1612.835153632589,
-                    "y": 93.87399655818166,
-                    "width": 54.127343903965354,
-                    "height": 16.178281465551493
+                    "x": 874.3276581849669,
+                    "y": 470.63810325291513,
+                    "width": 148.55243767301965,
+                    "height": 144.55551123560264
                 },
-                "img_path": "/home/suman/projects/the-soap-factory-project/data/instance/input/extracted_page16_1612.835153632589_93.87399655818166.png"
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_874.3276581849669_470.63810325291513.png"
             },
             {
                 "line_item": 4,
                 "coordinates": {
-                    "x": 1419.0952032891078,
-                    "y": 244.6715867739841,
-                    "width": 47.13672713899438,
-                    "height": 48.135386676847375
+                    "x": 236.81789141695677,
+                    "y": 726.4413800005383,
+                    "width": 210.504797452983,
+                    "height": 169.53630146945886
                 },
-                "img_path": "/home/suman/projects/the-soap-factory-project/data/instance/input/extracted_page16_1419.0952032891078_244.6715867739841.png"
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_236.81789141695677_726.4413800005383.png"
+            },
+            {
+                "line_item": 5,
+                "coordinates": {
+                    "x": 864.3353420914244,
+                    "y": 735.4344644847265,
+                    "width": 201.5117129687948,
+                    "height": 103.58701525207849
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_864.3353420914244_735.4344644847265.png"
+            },
+            {
+                "line_item": 6,
+                "coordinates": {
+                    "x": 819.3699196704833,
+                    "y": 1292.0064708950426,
+                    "width": 104.58624686143273,
+                    "height": 85.60083103663767
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_819.3699196704833_1292.0064708950426.png"
+            },
+            {
+                "line_item": 7,
+                "coordinates": {
+                    "x": 1169.1009829444702,
+                    "y": 507.6096423048936,
+                    "width": 172.53399629752158,
+                    "height": 107.58392644243112
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_1169.1009829444702_507.6096423048936.png"
+            },
+            {
+                "line_item": 8,
+                "coordinates": {
+                    "x": 1340.9688197534008,
+                    "y": 432.66728685038936,
+                    "width": 162.54168020397913,
+                    "height": 150.5508856446638
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page1_1340.9688197534008_432.66728685038936.png"
             }
         ]
     }
