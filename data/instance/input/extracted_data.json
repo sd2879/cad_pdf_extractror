@@ -1,3 +1,54 @@
 {
-    "input": {}
+    "input": {
+        "Page 3": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 1385.0634373289938,
+                    "y": 368.4847781110367,
+                    "width": 0,
+                    "height": 0
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page3_1385.0634373289938_368.4847781110367.png",
+                "metadata": {
+                    "length": 0,
+                    "width": 0,
+                    "height": 0,
+                    "cost": 0
+                }
+            },
+            {
+                "line_item": 2,
+                "coordinates": {
+                    "x": 102.85618892926198,
+                    "y": 331.53643839858336,
+                    "width": 0,
+                    "height": 0
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page3_102.85618892926198_331.53643839858336.png",
+                "metadata": {
+                    "length": 0,
+                    "width": 0,
+                    "height": 0,
+                    "cost": 0
+                }
+            },
+            {
+                "line_item": 3,
+                "coordinates": {
+                    "x": 1832.4379289824826,
+                    "y": 60.91483033674738,
+                    "width": 0,
+                    "height": 0
+                },
+                "img_path": "/home/suman/projects/cad_pdf_extractror/data/instance/input/extracted_page3_1832.4379289824826_60.91483033674738.png",
+                "metadata": {
+                    "length": 0,
+                    "width": 0,
+                    "height": 0,
+                    "cost": 0
+                }
+            }
+        ]
+    }
 }
