@@ -7,63 +7,75 @@
         body {
             display: flex;
             margin: 0;
+            height: 100vh;
+            overflow: hidden;
         }
+
         #pdfContainer {
             flex: 1;
             padding: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
+
         #pdfDisplay {
             position: relative;
-            display: inline-block;
-        }
-        #pdfCanvas {
+            overflow: auto;
+            flex: 1;
             border: 1px solid #ddd;
+        }
+
+        #pdfCanvas {
             cursor: crosshair;
         }
+
         #bbox {
             position: absolute;
             border: 2px dashed red;
             display: none;
             pointer-events: none;
         }
+
         #extractBtn {
             position: absolute;
             display: none;
         }
+
         #sidebar {
             width: 250px;
             background-color: #f0f0f0;
             padding: 10px;
             overflow-y: auto;
             border-left: 1px solid #ddd;
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
+
+        #lineItems {
+            flex: 1;
+            overflow-y: auto;
+            width: 100%;
+        }
+
         .page-item {
             font-weight: bold;
             margin-top: 10px;
         }
+
         .line-item {
-            cursor: pointer;
-            padding: 5px 0;
-        }
-        .metadata {
-            font-size: 0.9em;
-            color: #555;
             margin-left: 15px;
-            display: none; /* Start as hidden */
+            display: flex;
+            align-items: center;
         }
-        .toggle-btn {
-            background: none;
-            border: none;
-            color: #007bff;
-            cursor: pointer;
-            font-size: 0.9em;
+
+        .line-item button {
             margin-left: 10px;
-        }
-        .toggle-btn:focus {
-            outline: none;
-        }
-        .expanded .metadata {
-            display: block; /* Show metadata when expanded */
         }
     </style>
 </head>
@@ -71,36 +83,22 @@
     <div id="pdfContainer">
         <h1>PDF Viewer with BBox Extraction</h1>
         
-        <!-- Page selector controls -->
-        <label for="pageSelector">Select Page:</label>
-        <input type="range" id="pageSelector" min="1" max="{{ page_count }}" value="1">
-        <span id="pageNumberDisplay">Page: 1</span>
-        
-        <label for="pageInput">Go to Page:</label>
-        <input type="number" id="pageInput" min="1" max="{{ page_count }}" value="1">
-        
-        <!-- PDF Display with BBox drawing -->
+        <div>
+            <label for="pageSelector">Select Page:</label>
+            <input type="range" id="pageSelector" min="1" max="{{ page_count }}" value="1">
+            <span id="pageNumberDisplay">Page: 1</span>
+
+            <label for="pageInput">Go to Page:</label>
+            <input type="number" id="pageInput" min="1" max="{{ page_count }}" value="1">
+        </div>
+
         <div id="pdfDisplay">
             <canvas id="pdfCanvas"></canvas>
             <div id="bbox"></div>
             <button id="extractBtn">Extract BBox Contents</button>
         </div>
-        
-        <!-- Metadata input fields -->
-        <div>
-            <h3>Metadata Input</h3>
-            <label for="lengthInput">Length:</label>
-            <input type="number" id="lengthInput" step="0.1"><br>
-            <label for="widthInput">Width:</label>
-            <input type="number" id="widthInput" step="0.1"><br>
-            <label for="heightInput">Height:</label>
-            <input type="number" id="heightInput" step="0.1"><br>
-            <label for="costInput">Cost:</label>
-            <input type="number" id="costInput" step="0.01"><br>
-        </div>
     </div>
-    
-    <!-- Sidebar for dynamic line items -->
+
     <div id="sidebar">
         <h2>Extracted Items</h2>
         <div id="lineItems"></div>
@@ -115,6 +113,37 @@
         const extractBtn = document.getElementById('extractBtn');
         const lineItemsContainer = document.getElementById('lineItems');
         let lineItemCount = {};
+
+        function loadExtractedItems() {
+            fetch('/get_extracted_items')
+                .then(response => response.json())
+                .then(data => {
+                    const pdfData = data["{{ pdf_name }}"];
+                    if (pdfData) {
+                        for (const [page, items] of Object.entries(pdfData)) {
+                            const pageNum = page.replace("Page ", "");
+                            items.forEach(item => {
+                                addLineItem(page, item.line_item, pageNum);
+                                renderStoredBBox(item.coordinates);
+                            });
+                        }
+                    }
+                })
+                .catch(error => console.error('Error loading extracted items:', error));
+        }
+
+        function renderStoredBBox(coords) {
+            const bboxElement = document.createElement('div');
+            bboxElement.classList.add('stored-bbox');
+            bboxElement.style.position = 'absolute';
+            bboxElement.style.border = '2px dashed red';
+            bboxElement.style.pointerEvents = 'none';
+            bboxElement.style.left = coords.x + 'px';
+            bboxElement.style.top = coords.y + 'px';
+            bboxElement.style.width = coords.width + 'px';
+            bboxElement.style.height = coords.height + 'px';
+            pdfDisplay.appendChild(bboxElement);
+        }
 
         function loadPage(pageNum) {
             fetch(`/get_page/${pageNum}`)
@@ -159,8 +188,11 @@
         function stopDrawing() {
             pdfCanvas.removeEventListener('mousemove', draw);
             pdfCanvas.removeEventListener('mouseup', stopDrawing);
-            extractBtn.style.left = bbox.style.left;
-            extractBtn.style.top = parseInt(bbox.style.top) + parseInt(bbox.style.height) + 'px';
+            
+            const bboxRect = bbox.getBoundingClientRect();
+            const pdfDisplayRect = document.getElementById('pdfDisplay').getBoundingClientRect();
+            extractBtn.style.left = (bboxRect.right - pdfDisplayRect.left + 10) + 'px';
+            extractBtn.style.top = (bboxRect.bottom - pdfDisplayRect.top + 10) + 'px';
             extractBtn.style.display = 'block';
         }
 
@@ -175,59 +207,27 @@
             const height = rect.height * scale;
 
             const pageNum = pageSelector.value;
-            const length = document.getElementById('lengthInput').value || 0;
-            const itemWidth = document.getElementById('widthInput').value || 0;
-            const itemHeight = document.getElementById('heightInput').value || 0;
-            const cost = document.getElementById('costInput').value || 0.0;
-
             fetch(`/extract_bbox/${pageNum}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ x, y, width, height, length, width: itemWidth, height: itemHeight, cost })
+                body: JSON.stringify({ x, y, width, height })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.page && data.line_item) {
-                    addLineItem(data.page, data.line_item, pageNum, { length, width: itemWidth, height: itemHeight, cost });
-                    renderImmediateBBox({ x, y, width, height }, data.line_item);
-                }
+                alert('BBox contents extracted and saved!');
+                addLineItem(data.page, data.line_item, pageNum);
+                renderImmediateBBox({ x, y, width, height }, data.line_item);
             })
             .catch(error => console.error('Error:', error));
         }
 
-        // Function to load existing line items and render them on the UI
-        function loadExtractedItems() {
-            fetch('/get_extracted_items')
-                .then(response => response.json())
-                .then(data => {
-                    const pdfData = data["{{ pdf_name }}"];
-                    if (pdfData) {
-                        for (const [page, items] of Object.entries(pdfData)) {
-                            const pageNum = page.replace("Page ", "");
-                            items.forEach(item => {
-                                // Call addLineItem to render each item in the UI
-                                addLineItem(page, item.line_item, pageNum, item.metadata);
-                                
-                                // Render the stored bbox on the canvas for each extracted item
-                                renderStoredBBox(item.coordinates);
-                            });
-                        }
-                    }
-                })
-                .catch(error => console.error('Error loading extracted items:', error));
-        }
-
-        // Call loadExtractedItems on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadExtractedItems();
-        });
-
-        function addLineItem(page, lineItem, pageNum, metadata) {
+        function addLineItem(page, lineItem, pageNum) {
             if (!lineItemCount[pageNum]) {
                 lineItemCount[pageNum] = 1;
                 const pageDiv = document.createElement('div');
                 pageDiv.classList.add('page-item');
                 pageDiv.innerText = `Page ${pageNum}`;
+                pageDiv.setAttribute('data-page', pageNum);
                 lineItemsContainer.appendChild(pageDiv);
             } else {
                 lineItemCount[pageNum]++;
@@ -236,19 +236,10 @@
             const lineItemDiv = document.createElement('div');
             lineItemDiv.classList.add('line-item');
             lineItemDiv.id = `page-${pageNum}-item-${lineItem}`;
-            
             lineItemDiv.innerHTML = `
                 -- Line item ${lineItem} 
-                <button class="toggle-btn" onclick="toggleMetadata('page-${pageNum}-item-${lineItem}')">[+]</button>
-                <div class="metadata">
-                    <div><strong>Length:</strong> ${metadata.length}</div>
-                    <div><strong>Width:</strong> ${metadata.width}</div>
-                    <div><strong>Height:</strong> ${metadata.height}</div>
-                    <div><strong>Cost:</strong> $${metadata.cost}</div>
-                </div>
                 <button onclick="deleteLineItem('${page}', ${lineItem}, ${pageNum})">Delete</button>
             `;
-            
             lineItemsContainer.appendChild(lineItemDiv);
         }
 
@@ -257,52 +248,28 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Remove the line item from the UI
-                        const lineItemDiv = document.getElementById(`page-${pageNum}-item-${lineItem}`);
-                        if (lineItemDiv) {
-                            lineItemDiv.remove();
-                        }
-                        alert('Line item deleted successfully.');
+                        alert('Line item deleted');
+                        document.getElementById(`page-${pageNum}-item-${lineItem}`).remove();
                     } else {
-                        alert('Error: Line item could not be deleted.');
+                        alert('Error deleting line item');
                     }
                 })
-                .catch(error => console.error('Error deleting line item:', error));
+                .catch(error => console.error('Error:', error));
         }
 
-
-        function renderStoredBBox(coords) {
-            const bboxElement = document.createElement('div');
-            bboxElement.classList.add('stored-bbox');
-            bboxElement.style.position = 'absolute';
-            bboxElement.style.border = '2px dashed red';
-            bboxElement.style.pointerEvents = 'none';
-            bboxElement.style.left = coords.x + 'px';
-            bboxElement.style.top = coords.y + 'px';
-            bboxElement.style.width = coords.width + 'px';
-            bboxElement.style.height = coords.height + 'px';
-            pdfDisplay.appendChild(bboxElement);
-        }
-        
-        function toggleMetadata(itemId) {
-            const itemDiv = document.getElementById(itemId);
-            itemDiv.classList.toggle('expanded');
-            const toggleBtn = itemDiv.querySelector('.toggle-btn');
-            toggleBtn.textContent = itemDiv.classList.contains('expanded') ? '[-]' : '[+]';
+        function cancelSelection() {
+            bbox.style.display = 'none';
+            extractBtn.style.display = 'none';
         }
 
-        function renderImmediateBBox(coords, lineItemNumber) {
-            const bboxElement = document.createElement('div');
-            bboxElement.classList.add('stored-bbox');
-            bboxElement.style.position = 'absolute';
-            bboxElement.style.border = '2px dashed red';
-            bboxElement.style.pointerEvents = 'none';
-            bboxElement.style.left = coords.x + 'px';
-            bboxElement.style.top = coords.y + 'px';
-            bboxElement.style.width = coords.width + 'px';
-            bboxElement.style.height = coords.height + 'px';
-            pdfDisplay.appendChild(bboxElement);
-        }
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                cancelSelection();
+            }
+        });
+
+        pdfCanvas.addEventListener('mousedown', startDrawing);
+        extractBtn.addEventListener('click', extractBBoxContents);
 
         pageSelector.addEventListener('input', function() {
             pageNumberDisplay.textContent = `Page: ${this.value}`;
@@ -313,9 +280,8 @@
             loadPage(this.value);
         });
 
-        pdfCanvas.addEventListener('mousedown', startDrawing);
-        extractBtn.addEventListener('click', extractBBoxContents);
         loadPage(1);
+        loadExtractedItems();
     </script>
 </body>
 </html>
