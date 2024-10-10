@@ -42,12 +42,6 @@ def extract_bbox(page_num):
     if 1 <= page_num <= pdf_document.page_count:
         data = request.get_json()
         x, y, width, height = data['x'], data['y'], data['width'], data['height']
-        
-        # Additional metadata fields
-        length = data.get('length', 0)
-        item_width = data.get('width', 0)
-        item_height = data.get('height', 0)
-        cost = data.get('cost', 0.0)
 
         # Load the page and extract the specified region
         page = pdf_document.load_page(page_num - 1)
@@ -62,20 +56,14 @@ def extract_bbox(page_num):
         # Format the page key as "Page {number}"
         page_key = f"Page {page_num}"
 
-        # Update the extracted data dictionary with metadata
+        # Update the extracted data dictionary
         if page_key not in extracted_data[pdf_name]:
             extracted_data[pdf_name][page_key] = []
         line_item_number = len(extracted_data[pdf_name][page_key]) + 1
         extracted_data[pdf_name][page_key].append({
             "line_item": line_item_number,
             "coordinates": {"x": x, "y": y, "width": width, "height": height},
-            "img_path": img_path,
-            "metadata": {
-                "length": length,
-                "width": item_width,
-                "height": item_height,
-                "cost": cost
-            }
+            "img_path": img_path
         })
 
         # Save updated data back to the JSON file
@@ -85,7 +73,6 @@ def extract_bbox(page_num):
         return jsonify({'message': f'BBox contents saved as {img_path}', 'page': page_key, 'line_item': line_item_number})
     else:
         return jsonify({'error': 'Page not found'}), 404
-
 
 
 @app.route('/delete_line_item/<int:page_num>/<int:line_item>', methods=['DELETE'])
@@ -105,13 +92,11 @@ def delete_line_item(page_num, line_item):
             if not line_items:  # If no items left on the page, delete the page entry
                 del extracted_data[pdf_name][page_key]
 
-            # Save changes to JSON
             with open(json_path, 'w') as json_file:
                 json.dump(extracted_data, json_file, indent=4)
 
             return jsonify({'success': True})
     return jsonify({'success': False, 'message': 'Line item not found'}), 404
-
 
 @app.route('/get_extracted_items')
 def get_extracted_items():
