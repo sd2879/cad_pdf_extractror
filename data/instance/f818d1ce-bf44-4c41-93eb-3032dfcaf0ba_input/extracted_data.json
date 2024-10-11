@@ -1,0 +1,23 @@
+{
+    "f818d1ce-bf44-4c41-93eb-3032dfcaf0ba_input": {
+        "Page 1": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 859.9178885630498,
+                    "y": 520.3452184235246,
+                    "width": 257.67574361122746,
+                    "height": 109.86175115207374
+                },
+                "img_path": "extracted_page1_859.9178885630498_520.3452184235246.png",
+                "metadata": {
+                    "lengthField": "A",
+                    "breadthField": "SECTIO",
+                    "heightField": "SECTION A GA-541",
+                    "paintCostField": "",
+                    "noteField": ""
+                }
+            }
+        ]
+    }
+}
