@@ -1,34 +1,3 @@
 {
-    "input": {
-        "Page 1": [
-            {
-                "line_item": 1,
-                "coordinates": {
-                    "x": 1465.7703269069573,
-                    "y": 340.71416596814754,
-                    "width": 218.81642917015927,
-                    "height": 74.9371332774518
-                },
-                "img_path": "extracted_page1_1465.7703269069573_340.71416596814754.png",
-                "metadata": {}
-            },
-            {
-                "line_item": 2,
-                "coordinates": {
-                    "x": 637.4652137468566,
-                    "y": 68.94216261525565,
-                    "width": 551.5373009220452,
-                    "height": 550.5381391450126
-                },
-                "img_path": "extracted_page1_637.4652137468566_68.94216261525565.png",
-                "metadata": {
-                    "lengthField": "447",
-                    "breadthField": "370",
-                    "heightField": "870",
-                    "paintCostField": "12",
-                    "noteField": ""
-                }
-            }
-        ]
-    }
+    "input": {}
 }
