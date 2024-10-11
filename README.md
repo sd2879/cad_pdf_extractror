@@ -26,9 +26,6 @@ cad_pdf_extractor/
 │   └── instance/          # Extracted JSON data
 └── assets/                # Media assets (demo GIFs, screenshots)
 
-cad_pdf_extractor/ ├── app.py # Main Flask application ├── ocr.py # OCR processing module ├── requirements.txt # Dependency list ├── templates/ # HTML templates │ ├── upload.html # Upload page │ └── index.html # Main interface ├── static/ # Static files (CSS, JS, images) │ └── css/ │ └── styles.css # Stylesheet ├── data/ # Data storage │ ├── pdf/ # Uploaded PDFs │ └── instance/ # Extracted JSON data └── assets/ # Media assets (demo GIFs, screenshots)
-
-
 
 ## Prerequisites
 
