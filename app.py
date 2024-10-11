@@ -43,7 +43,13 @@ def get_page(page_num):
 def extract_bbox(page_num):
     if 1 <= page_num <= pdf_document.page_count:
         data = request.get_json()
-        x, y, width, height = data['x'], data['y'], data['width'], data['height']
+        try:
+            x = float(data['x'])
+            y = float(data['y'])
+            width = float(data['width'])
+            height = float(data['height'])
+        except (TypeError, ValueError, KeyError):
+            return jsonify({'error': 'Invalid coordinates'}), 400
 
         # Load the page and extract the specified region
         page = pdf_document.load_page(page_num - 1)
@@ -91,19 +97,22 @@ def get_image(filename):
 @app.route('/perform_ocr', methods=['POST'])
 def perform_ocr():
     data = request.get_json()
-    page_num = data.get('pageNum')
-    line_item = data.get('lineItem')
-    x = int(data.get('x'))
-    y = int(data.get('y'))
-    width = int(data.get('width'))
-    height = int(data.get('height'))
+    try:
+        page_num = int(data.get('pageNum'))
+        line_item = int(data.get('lineItem'))
+        x = int(float(data.get('x')))
+        y = int(float(data.get('y')))
+        width = int(float(data.get('width')))
+        height = int(float(data.get('height')))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Invalid input parameters'}), 400
 
     page_key = f"Page {page_num}"
 
     if page_key in extracted_data[pdf_name]:
         line_items = extracted_data[pdf_name][page_key]
         # Find the line item in the list
-        item = next((item for item in line_items if item["line_item"] == int(line_item)), None)
+        item = next((item for item in line_items if item["line_item"] == line_item), None)
         if item:
             # Load the image associated with the line item
             img_filename = item['img_path']
@@ -138,13 +147,17 @@ def perform_ocr():
 @app.route('/get_line_item', methods=['POST'])
 def get_line_item():
     data = request.get_json()
-    page_num = data.get('pageNum')
-    line_item = data.get('lineItem')
+    try:
+        page_num = int(data.get('pageNum'))
+        line_item = int(data.get('lineItem'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Invalid page number or line item'}), 400
+
     page_key = f"Page {page_num}"
 
     if page_key in extracted_data[pdf_name]:
         line_items = extracted_data[pdf_name][page_key]
-        item = next((item for item in line_items if item["line_item"] == int(line_item)), None)
+        item = next((item for item in line_items if item["line_item"] == line_item), None)
         if item:
             # Return the line item data, including img_path
             return jsonify({'success': True, 'line_item_data': item}), 200
@@ -156,22 +169,26 @@ def get_line_item():
 @app.route('/submit_metadata', methods=['POST'])
 def submit_metadata():
     data = request.get_json()
-    page_num = data.get('pageNum')
-    line_item = data.get('lineItem')
+    try:
+        page_num = int(data.get('pageNum'))
+        line_item = int(data.get('lineItem'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Invalid page number or line item'}), 400
+
     page_key = f"Page {page_num}"
 
     if page_key in extracted_data[pdf_name]:
         line_items = extracted_data[pdf_name][page_key]
         # Find the line item in the list
-        item = next((item for item in line_items if item["line_item"] == int(line_item)), None)
+        item = next((item for item in line_items if item["line_item"] == line_item), None)
         if item:
             # Update the metadata fields (fields are optional)
             item['metadata'] = {
-                'lengthField': data.get('lengthField', ''),
-                'breadthField': data.get('breadthField', ''),
-                'heightField': data.get('heightField', ''),
-                'paintCostField': data.get('paintCostField', ''),
-                'noteField': data.get('noteField', '')
+                'lengthField': data.get('lengthField', '') if data.get('lengthField') is not None else '',
+                'breadthField': data.get('breadthField', '') if data.get('breadthField') is not None else '',
+                'heightField': data.get('heightField', '') if data.get('heightField') is not None else '',
+                'paintCostField': data.get('paintCostField', '') if data.get('paintCostField') is not None else '',
+                'noteField': data.get('noteField', '') if data.get('noteField') is not None else ''
                 # Add more fields as needed
             }
             # Save updated data back to the JSON file
