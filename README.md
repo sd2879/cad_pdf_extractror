@@ -1,89 +1,73 @@
-# The Soap Factory Project
+# CAD PDF Extractor
 
-This repo contains the code used to create a visual representation of the Work Breakdown Structure (WBS) for the Soap Factory work.
+This project is a web application that allows users to upload PDF files, view and extract specific sections using bounding boxes, and process images with OCR. The application is built with Flask and utilizes PyMuPDF for PDF handling, PaddleOCR for text extraction, and OpenCV for image processing.
 
-The application can be accessed at [https://the-soap-factory-project.replit.app/](https://the-soap-factory-project.replit.app/).
+## Features
 
-## Contributing
+- **PDF Upload and Viewing**: Upload PDF files and navigate through pages to view and select specific regions.
+- **Bounding Box Extraction**: Extract images within specified bounding boxes on any PDF page.
+- **OCR Text Extraction**: Extract text from images within bounding boxes using PaddleOCR.
+- **Data Persistence**: Save and manage extracted data in JSON format for each PDF file.
 
-The code for this project is hosted on [Replit](https://replit.com/@virgelsnake/The-Soap-Factory-Project), which can be used as an IDE for developing the application. You will need to be granted access to use this instance on Replit.
+## Project Structure
 
-It is also possible to work on this repository locally and push changes via Pull Request.
+cad_pdf_extractor/
+├── app.py                 # Main Flask application
+├── ocr.py                 # OCR processing module
+├── requirements.txt       # Dependency list
+├── templates/             # HTML templates
+│   ├── upload.html        # Upload page
+│   └── index.html         # Main interface
+├── static/                # Static files (CSS, JS, images)
+│   └── css/
+│       └── styles.css     # Stylesheet (if applicable)
+├── data/                  # Data storage
+│   ├── pdf/               # Uploaded PDFs
+│   └── instance/          # Extracted JSON data
+└── assets/                # Media assets (demo GIFs, screenshots)
 
-> **PLEASE DO NOT COMMIT CODE DIRECTLY TO THE MAIN BRANCH**
+## Prerequisites
 
-## Working on Replit
+Ensure you have Python installed on your system. You will also need to install dependencies listed in the `requirements.txt` file.
 
-### Development process
+## Installation
 
-1. Ask for access.
-2. To make changes to the code, first create a new branch.
-  1. Open the **Git** tab.
-  2. At the top of the tab there is a drop down containing the names of the current branches. Ensure that you are on the branch that you want to use as a base for your new branch. If in doubt, choose `main`.
-  3. To create a new branch, open that same drop down and type the name you want to give your branch in the search box starting with your initials so it's easy to see who's working on what, i.e. `acg-adding-feature-x`.
-  4. Assuming there is not already a branch with that name, you will be prompted to create the new branch. Doing so will create the branch and then switch you to it.
-3. Work on the code directly in Replit.
-4. Regularly use the **Git** tab as you work to commit your changes. It is also good practice to use the **Push branch...** button to push your changes up to GitHub. After you do this for the first time with a new branch, this button will change to a **Sync with Remote** button.
-5. When you are ready to submit your work, use the **Git** tab to ensure all your code is committed and pushed to GitHub. Use the ellipsis (...) button to access the menu for your branch and select **New Pull Request** to create a PR for your changes.
-6. One of the repo admins will then review your Pull Request. Once approval is granted, your PR will be merged to the `main` branch for you. The admin will then ensure that Replit is updated to remove your branch and update the version of the `main` branch there. They will also deploy your code.
+1. Clone this repository to your local machine.
+2. Navigate to the project directory:
 
-### Running
+    ```bash
+    cd cad_pdf_extractor
+    ```
 
-In Replit, hitting the **Run** button should be all you need to get up and running. The Webview will then show the application.
+3. Install the required dependencies:
 
-## Working on your own machine
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-To pull the code locally, [clone the repo](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories).
+## Usage
 
-### Prerequisites
+1. Run the Flask application:
 
-You'll need to have [NodeJS](https://nodejs.org/en) installed on your local machine. At time of writing, the version of NodeJS was 20.x.
+    ```bash
+    python app.py
+    ```
 
-The code also uses a SQLite3 database for local development. You'll need to [install it](https://www.sqlite.org/download.html) locally if you're not working on Replit.
+2. Open a web browser and go to `http://127.0.0.1:5000` to access the application.
+3. Upload a PDF file and use the interface to navigate through pages, extract bounding boxes, and process OCR.
 
-### Development process
+## Dependencies
 
-1. Create a branch to work on using the naming convention `<your initials>-<name-of-the-branch>`, i.e. `acg-adding-feature-x`.
-2. When you're ready to submit your changes, create a PR on GitHub.
-3. One of the repo admins will then review your Pull Request. Once approval is granted, your PR will be merged to the `main` branch for you.
-4. The admin will also ensure that Replit is updated accordingly. They will also deploy any changes.
+The application requires the following main dependencies:
 
-### Running
+- Flask
+- PyMuPDF
+- PaddleOCR
+- OpenCV
 
-From the root of the project:
+For the full list, refer to `requirements.txt`.
 
-```shell
-# install dependencies
-npm install
+## License
 
-# start the local server
-npm run start
-```
+This project is open source, just for you!
 
-Now visit [http://localhost:3000](http://localhost:3000) to run the application in your browser.
-
-## Deploying
-
-The application is deployed using [Replit](https://replit.com/@virgelsnake/The-Soap-Factory-Project). On the **Deployments** tab, click the **Redeploy** button to deploy the latest changes on the `main` branch.
-
-The application can be accessed at [https://the-soap-factory-project.replit.app/](https://the-soap-factory-project.replit.app/).
-
-## Data
-
-In Replit, and when deployed, we use Replit's built-in Key-Value Database. On our local machines we don't have access to Replit's DB, so we're using SQLite instead. The application decides which DB to use based on an environment variable `USE_REPLIT_DB`. This is set in Replit using Secrets for development and Deploy Secrets for deployed applications.
-
-When set to `true`, the application will use the Replit DB. When set to `false`, the application will use a local SQLite database in a file called `tree.db` in the `db` folder. If the environment variable is not explicitly set, it will default to `false` and SQLite will be used.
-
-### Seeding and emptying the database
-
-There are two commands that help us to refresh a database: `npm run db:seed` and `npm run db:empty`.
-
-#### Seeding
-
-Running `npm run db:seed` first checks to see if the database is empty. If it is not, the process will end with a message saying the database is not empty and no data will be added. If the database is empty, the `data.json` file in the project root folder will be used to populate the database with an initial WBS.
-
-#### Emptying
-
-**CAUTION: YOU WILL NOT BE PROMPTED FOR CONFIRMATION WHEN RUNNING THIS ACTION AND IT IS NOT REVERSIBLE. DO NOT USE UNLESS YOU HAVE A BACKUP AND KNOW WHAT YOU'RE DOING!!**
-
-Running `npm run db:empty` will delete all node data from the database.
