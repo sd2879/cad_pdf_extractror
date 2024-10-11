@@ -1,3 +1,67 @@
 {
-    "input": {}
+    "input": {
+        "Page 2": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 1263.410138248848,
+                    "y": 534.3276383552184,
+                    "width": 450.4331797235023,
+                    "height": 364.5412651864265
+                },
+                "img_path": "extracted_page2_1263.410138248848_534.3276383552184.png",
+                "metadata": {
+                    "lengthField": "1212",
+                    "breadthField": "1313",
+                    "heightField": "1313",
+                    "paintCostField": "1313",
+                    "noteField": "adaf"
+                }
+            },
+            {
+                "line_item": 2,
+                "coordinates": {
+                    "x": 1345.3070800167575,
+                    "y": 104.86803519061583,
+                    "width": 430.4583158776707,
+                    "height": 272.65689149560114
+                },
+                "img_path": "extracted_page2_1345.3070800167575_104.86803519061583.png",
+                "metadata": {}
+            },
+            {
+                "line_item": 3,
+                "coordinates": {
+                    "x": 422.6985876847799,
+                    "y": 434.69005222871834,
+                    "width": 3.3975712013730903,
+                    "height": 3.39758644928937
+                },
+                "img_path": "extracted_page2_422.6985876847799_434.69005222871834.png",
+                "metadata": {}
+            },
+            {
+                "line_item": 4,
+                "coordinates": {
+                    "x": 403.7121262994116,
+                    "y": 488.6515740608179,
+                    "width": 3.3975712013730903,
+                    "height": 3.39758644928937
+                },
+                "img_path": "extracted_page2_403.7121262994116_488.6515740608179.png",
+                "metadata": {}
+            },
+            {
+                "line_item": 5,
+                "coordinates": {
+                    "x": 413.7050007127633,
+                    "y": 554.6045451889396,
+                    "width": 3.3975712013730903,
+                    "height": 3.39758644928937
+                },
+                "img_path": "extracted_page2_413.7050007127633_554.6045451889396.png",
+                "metadata": {}
+            }
+        ]
+    }
 }
