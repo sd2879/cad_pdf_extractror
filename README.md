@@ -51,7 +51,7 @@ Ensure you have Python installed on your system. You will also need to install d
 1. Run the Flask application:
 
     ```bash
-    python app.py
+    python3 app.py
     ```
 
 2. Open a web browser and go to `http://127.0.0.1:5000` to access the application.
