@@ -1,37 +1,76 @@
 import os
 import json
-from flask import Flask, render_template, request, jsonify, send_from_directory
+import uuid
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for
 import fitz  # PyMuPDF
 from ocr import get_ocr_results
 from PIL import Image
 
 app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), "data", "pdf")
 
-# Define the input PDF file path
-pdf_input = os.path.join(os.getcwd(), "data", "pdf", "input.pdf")
-pdf_document = fitz.open(pdf_input)
-pdf_name = os.path.splitext(os.path.basename(pdf_input))[0]
-save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+# Ensure the upload folder exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Ensure the save directory exists
-os.makedirs(save_directory, exist_ok=True)
+@app.route('/', methods=['GET', 'POST'])
+def upload_pdf():
+    if request.method == 'POST':
+        # Check if the post request has the file part
+        if 'pdf_file' not in request.files:
+            return render_template('upload.html', error='No file part')
+        file = request.files['pdf_file']
+        # If user does not select file, browser may submit an empty part without filename
+        if file.filename == '':
+            return render_template('upload.html', error='No selected file')
+        if file and file.filename.lower().endswith('.pdf'):
+            # Save the uploaded PDF
+            pdf_id = str(uuid.uuid4())
+            filename = f"{pdf_id}_{file.filename}"
+            pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(pdf_path)
+            return redirect(url_for('index', pdf_id=pdf_id))
+        else:
+            return render_template('index.html', error='Invalid file type. Please upload a PDF.')
+    return render_template('index.html')
 
-# Path for the JSON file that will store extraction data
-json_path = os.path.join(save_directory, "extracted_data.json")
+@app.route('/viewer/<pdf_id>')
+def index(pdf_id):
+    # Find the PDF file corresponding to the pdf_id
+    pdf_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(pdf_id)]
+    if not pdf_files:
+        return "PDF not found", 404
+    pdf_filename = pdf_files[0]
+    pdf_name = os.path.splitext(pdf_filename)[0]
+    pdf_input = os.path.join(app.config['UPLOAD_FOLDER'], pdf_filename)
+    pdf_document = fitz.open(pdf_input)
+    page_count = pdf_document.page_count
 
-# Load existing data from the JSON file or initialize an empty structure
-if os.path.exists(json_path):
-    with open(json_path, 'r') as json_file:
-        extracted_data = json.load(json_file)
-else:
-    extracted_data = {pdf_name: {}}
+    # Define save directory for this PDF
+    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+    os.makedirs(save_directory, exist_ok=True)
 
-@app.route('/')
-def index():
-    return render_template('index.html', page_count=pdf_document.page_count, pdf_name=pdf_name)
+    # Path for the JSON file that will store extraction data
+    json_path = os.path.join(save_directory, "extracted_data.json")
 
-@app.route('/get_page/<int:page_num>')
-def get_page(page_num):
+    # Load existing data from the JSON file or initialize an empty structure
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as json_file:
+            extracted_data = json.load(json_file)
+    else:
+        extracted_data = {pdf_name: {}}
+
+    # Store in session or pass necessary data to templates
+    return render_template('upload.html', page_count=page_count, pdf_name=pdf_name, pdf_id=pdf_id)
+
+@app.route('/get_page/<pdf_id>/<int:page_num>')
+def get_page(pdf_id, page_num):
+    # Find the PDF file corresponding to the pdf_id
+    pdf_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(pdf_id)]
+    if not pdf_files:
+        return jsonify({'error': 'PDF not found'}), 404
+    pdf_filename = pdf_files[0]
+    pdf_input = os.path.join(app.config['UPLOAD_FOLDER'], pdf_filename)
+    pdf_document = fitz.open(pdf_input)
     if 1 <= page_num <= pdf_document.page_count:
         page = pdf_document.load_page(page_num - 1)
         svg_image = page.get_svg_image()
@@ -39,11 +78,41 @@ def get_page(page_num):
     else:
         return jsonify({'error': 'Page not found'}), 404
 
-@app.route('/extract_bbox/<int:page_num>', methods=['POST'])
-def extract_bbox(page_num):
+@app.route('/extract_bbox/<pdf_id>/<int:page_num>', methods=['POST'])
+def extract_bbox(pdf_id, page_num):
+    # Similar logic as before, adjusted to use pdf_id
+    # Find the PDF file
+    pdf_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(pdf_id)]
+    if not pdf_files:
+        return jsonify({'error': 'PDF not found'}), 404
+    pdf_filename = pdf_files[0]
+    pdf_name = os.path.splitext(pdf_filename)[0]
+    pdf_input = os.path.join(app.config['UPLOAD_FOLDER'], pdf_filename)
+    pdf_document = fitz.open(pdf_input)
+
+    # Define save directory for this PDF
+    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+    os.makedirs(save_directory, exist_ok=True)
+
+    # Path for the JSON file that will store extraction data
+    json_path = os.path.join(save_directory, "extracted_data.json")
+
+    # Load existing data from the JSON file or initialize an empty structure
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as json_file:
+            extracted_data = json.load(json_file)
+    else:
+        extracted_data = {pdf_name: {}}
+
     if 1 <= page_num <= pdf_document.page_count:
         data = request.get_json()
-        x, y, width, height = data['x'], data['y'], data['width'], data['height']
+        try:
+            x = float(data['x'])
+            y = float(data['y'])
+            width = float(data['width'])
+            height = float(data['height'])
+        except (TypeError, ValueError, KeyError):
+            return jsonify({'error': 'Invalid coordinates'}), 400
 
         # Load the page and extract the specified region
         page = pdf_document.load_page(page_num - 1)
@@ -82,28 +151,41 @@ def extract_bbox(page_num):
     else:
         return jsonify({'error': 'Page not found'}), 404
 
-# New route to serve extracted images
-@app.route('/get_image/<filename>')
-def get_image(filename):
+@app.route('/get_image/<pdf_name>/<filename>')
+def get_image(pdf_name, filename):
+    # Serve images from the instance directory
+    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
     return send_from_directory(save_directory, filename)
 
-# New route to handle OCR requests
 @app.route('/perform_ocr', methods=['POST'])
 def perform_ocr():
     data = request.get_json()
-    page_num = data.get('pageNum')
-    line_item = data.get('lineItem')
-    x = int(data.get('x'))
-    y = int(data.get('y'))
-    width = int(data.get('width'))
-    height = int(data.get('height'))
+    try:
+        pdf_name = data.get('pdfName')
+        page_num = int(data.get('pageNum'))
+        line_item = int(data.get('lineItem'))
+        x = int(float(data.get('x')))
+        y = int(float(data.get('y')))
+        width = int(float(data.get('width')))
+        height = int(float(data.get('height')))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Invalid input parameters'}), 400
+
+    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+    json_path = os.path.join(save_directory, "extracted_data.json")
+
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as json_file:
+            extracted_data = json.load(json_file)
+    else:
+        return jsonify({'success': False, 'message': 'No extracted data found'}), 404
 
     page_key = f"Page {page_num}"
 
     if page_key in extracted_data[pdf_name]:
         line_items = extracted_data[pdf_name][page_key]
         # Find the line item in the list
-        item = next((item for item in line_items if item["line_item"] == int(line_item)), None)
+        item = next((item for item in line_items if item["line_item"] == line_item), None)
         if item:
             # Load the image associated with the line item
             img_filename = item['img_path']
@@ -134,20 +216,33 @@ def perform_ocr():
     else:
         return jsonify({'success': False, 'message': 'Page not found'}), 404
 
-# Route to get line item data
 @app.route('/get_line_item', methods=['POST'])
 def get_line_item():
     data = request.get_json()
-    page_num = data.get('pageNum')
-    line_item = data.get('lineItem')
+    try:
+        pdf_name = data.get('pdfName')
+        page_num = int(data.get('pageNum'))
+        line_item = int(data.get('lineItem'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Invalid page number or line item'}), 400
+
+    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+    json_path = os.path.join(save_directory, "extracted_data.json")
+
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as json_file:
+            extracted_data = json.load(json_file)
+    else:
+        return jsonify({'success': False, 'message': 'No extracted data found'}), 404
+
     page_key = f"Page {page_num}"
 
     if page_key in extracted_data[pdf_name]:
         line_items = extracted_data[pdf_name][page_key]
-        item = next((item for item in line_items if item["line_item"] == int(line_item)), None)
+        item = next((item for item in line_items if item["line_item"] == line_item), None)
         if item:
             # Return the line item data, including img_path
-            return jsonify({'success': True, 'line_item_data': item}), 200
+            return jsonify({'success': True, 'line_item_data': item, 'pdf_name': pdf_name}), 200
         else:
             return jsonify({'success': False, 'message': 'Line item not found'}), 404
     else:
@@ -156,22 +251,36 @@ def get_line_item():
 @app.route('/submit_metadata', methods=['POST'])
 def submit_metadata():
     data = request.get_json()
-    page_num = data.get('pageNum')
-    line_item = data.get('lineItem')
+    try:
+        pdf_name = data.get('pdfName')
+        page_num = int(data.get('pageNum'))
+        line_item = int(data.get('lineItem'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Invalid page number or line item'}), 400
+
+    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+    json_path = os.path.join(save_directory, "extracted_data.json")
+
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as json_file:
+            extracted_data = json.load(json_file)
+    else:
+        return jsonify({'success': False, 'message': 'No extracted data found'}), 404
+
     page_key = f"Page {page_num}"
 
     if page_key in extracted_data[pdf_name]:
         line_items = extracted_data[pdf_name][page_key]
         # Find the line item in the list
-        item = next((item for item in line_items if item["line_item"] == int(line_item)), None)
+        item = next((item for item in line_items if item["line_item"] == line_item), None)
         if item:
-            # Update the metadata fields
+            # Update the metadata fields (fields are optional)
             item['metadata'] = {
-                'lengthField': data.get('lengthField'),
-                'breadthField': data.get('breadthField'),
-                'heightField': data.get('heightField'),
-                'paintCostField': data.get('paintCostField'),
-                'noteField': data.get('noteField')
+                'lengthField': data.get('lengthField', '') if data.get('lengthField') is not None else '',
+                'breadthField': data.get('breadthField', '') if data.get('breadthField') is not None else '',
+                'heightField': data.get('heightField', '') if data.get('heightField') is not None else '',
+                'paintCostField': data.get('paintCostField', '') if data.get('paintCostField') is not None else '',
+                'noteField': data.get('noteField', '') if data.get('noteField') is not None else ''
                 # Add more fields as needed
             }
             # Save updated data back to the JSON file
@@ -183,9 +292,26 @@ def submit_metadata():
     else:
         return jsonify({'success': False, 'message': 'Page not found'}), 404
 
-@app.route('/delete_line_item/<int:page_num>/<int:line_item>', methods=['DELETE'])
-def delete_line_item(page_num, line_item):
+@app.route('/delete_line_item/<pdf_id>/<int:page_num>/<int:line_item>', methods=['DELETE'])
+def delete_line_item(pdf_id, page_num, line_item):
+    # Similar logic as before, adjusted to use pdf_id
+    pdf_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(pdf_id)]
+    if not pdf_files:
+        return jsonify({'success': False, 'message': 'PDF not found'}), 404
+    pdf_filename = pdf_files[0]
+    pdf_name = os.path.splitext(pdf_filename)[0]
+
+    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+    json_path = os.path.join(save_directory, "extracted_data.json")
+
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as json_file:
+            extracted_data = json.load(json_file)
+    else:
+        return jsonify({'success': False, 'message': 'No extracted data found'}), 404
+
     page_key = f"Page {page_num}"
+
     if page_key in extracted_data[pdf_name]:
         line_items = extracted_data[pdf_name][page_key]
         item = next((item for item in line_items if item["line_item"] == line_item), None)
@@ -207,9 +333,12 @@ def delete_line_item(page_num, line_item):
             return jsonify({'success': True})
     return jsonify({'success': False, 'message': 'Line item not found'}), 404
 
-@app.route('/get_extracted_items')
-def get_extracted_items():
+@app.route('/get_extracted_items/<pdf_name>')
+def get_extracted_items(pdf_name):
     # Reload the extracted data from JSON file if it exists
+    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+    json_path = os.path.join(save_directory, "extracted_data.json")
+
     if os.path.exists(json_path):
         with open(json_path, 'r') as json_file:
             data = json.load(json_file)

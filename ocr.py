@@ -13,4 +13,6 @@ def get_ocr_results(image_path):
         for line in ocr_result[0]:
             text_lines.append(line[1][0])
         
-        return text_lines if text_lines else None
+        return ' '.join(text_lines) if text_lines else ''
+    else:
+        return ''
