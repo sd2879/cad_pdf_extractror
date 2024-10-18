@@ -1,0 +1,23 @@
+{
+    "b01bb145-554f-4f6b-b85e-6546656b1635_input": {
+        "Page 1": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 1345.3070800167575,
+                    "y": 48.93841642228739,
+                    "width": 497.3741097612065,
+                    "height": 278.64935064935065
+                },
+                "img_path": "extracted_page1_1345.3070800167575_48.93841642228739.png",
+                "metadata": {
+                    "lengthField": "1350",
+                    "breadthField": "1350",
+                    "heightField": "750",
+                    "paintCostField": "121",
+                    "noteField": "This is a test"
+                }
+            }
+        ]
+    }
+}
