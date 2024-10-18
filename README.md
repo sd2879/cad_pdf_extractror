@@ -48,20 +48,20 @@ Ensure you have Python installed on your system. You will also need to install d
 
 ## Usage
 
-1. Run the Flask application:
+1. Run the application:
 
     ```bash
-    python3 app.py
+    uvicorn app:app --reload
     ```
 
-2. Open a web browser and go to `http://127.0.0.1:5000` to access the application.
+2. Open a web browser and go to `http://127.0.0.1:8000` to access the application.
 3. Upload a PDF file and use the interface to navigate through pages, extract bounding boxes, and process OCR.
 
 ## Dependencies
 
 The application requires the following main dependencies:
 
-- Flask
+- Fastapi
 - PyMuPDF
 - PaddleOCR
 - OpenCV
