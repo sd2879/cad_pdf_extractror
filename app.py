@@ -1,351 +1,188 @@
 import os
-import json
 import uuid
-from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for
-import fitz  # PyMuPDF
-from ocr import get_ocr_results
-from PIL import Image
+from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, HTTPException, status
+from fastapi.responses import JSONResponse, RedirectResponse, FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
+from utils.main import (
+    get_pdf_info,
+    get_svg_page_image,
+    extract_bbox_content,
+    perform_ocr_on_image,
+    get_line_item_data,
+    update_line_item_metadata,
+    delete_line_item_data,
+    get_extracted_items_data
+)
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), "data", "pdf")
+app = FastAPI(
+    title="CAD PDF EXTRACTOR",
+    description="Find the API documentation below.",
+    version="1.0.0",
+    contact={
+        "name": "Suman Deb",
+        "email": "suman8deb@gmail.com",
+    },
+)
 
-# Ensure the upload folder exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+UPLOAD_FOLDER = os.path.join(os.getcwd(), "data", "pdf")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-@app.route('/', methods=['GET', 'POST'])
-def upload_pdf():
-    if request.method == 'POST':
-        # Check if the post request has the file part
-        if 'pdf_file' not in request.files:
-            return render_template('upload.html', error='No file part')
-        file = request.files['pdf_file']
-        # If user does not select file, browser may submit an empty part without filename
-        if file.filename == '':
-            return render_template('upload.html', error='No selected file')
-        if file and file.filename.lower().endswith('.pdf'):
-            # Save the uploaded PDF
-            pdf_id = str(uuid.uuid4())
-            filename = f"{pdf_id}_{file.filename}"
-            pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(pdf_path)
-            return redirect(url_for('index', pdf_id=pdf_id))
-        else:
-            return render_template('index.html', error='Invalid file type. Please upload a PDF.')
-    return render_template('index.html')
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.route('/viewer/<pdf_id>')
-def index(pdf_id):
-    # Find the PDF file corresponding to the pdf_id
-    pdf_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(pdf_id)]
-    if not pdf_files:
-        return "PDF not found", 404
-    pdf_filename = pdf_files[0]
-    pdf_name = os.path.splitext(pdf_filename)[0]
-    pdf_input = os.path.join(app.config['UPLOAD_FOLDER'], pdf_filename)
-    pdf_document = fitz.open(pdf_input)
-    page_count = pdf_document.page_count
+class BBoxData(BaseModel):
+    x: float
+    y: float
+    width: float
+    height: float
 
-    # Define save directory for this PDF
+class PerformOCRData(BaseModel):
+    pdfName: str
+    pageNum: int
+    lineItem: int
+    x: float
+    y: float
+    width: float
+    height: float
+
+class GetLineItemData(BaseModel):
+    pdfName: str
+    pageNum: int
+    lineItem: int
+
+@app.get("/", response_class=HTMLResponse)
+async def upload_pdf_get(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.post("/", response_class=HTMLResponse)
+async def upload_pdf_post(request: Request, pdf_file: UploadFile = File(...)):
+    if not pdf_file:
+        return templates.TemplateResponse('upload.html', {"request": request, "error": 'No file part'})
+    if pdf_file.filename == '':
+        return templates.TemplateResponse('upload.html', {"request": request, "error": 'No selected file'})
+    if pdf_file.filename.lower().endswith('.pdf'):
+        pdf_id = str(uuid.uuid4())
+        filename = f"{pdf_id}_{pdf_file.filename}"
+        pdf_path = os.path.join(UPLOAD_FOLDER, filename)
+        with open(pdf_path, "wb") as f:
+            f.write(await pdf_file.read())
+        return RedirectResponse(url=f"/viewer/{pdf_id}", status_code=303)
+    else:
+        return templates.TemplateResponse('index.html', {"request": request, "error": 'Invalid file type. Please upload a PDF.'})
+
+@app.get("/viewer/{pdf_id}", response_class=HTMLResponse)
+async def index(request: Request, pdf_id: str):
+    pdf_info = get_pdf_info(UPLOAD_FOLDER, pdf_id)
+    if not pdf_info:
+        raise HTTPException(status_code=404, detail="PDF not found")
+    pdf_filename, pdf_name, page_count = pdf_info
+    return templates.TemplateResponse('upload.html', {"request": request, "page_count": page_count, "pdf_name": pdf_name, "pdf_id": pdf_id})
+
+@app.get("/get_page/{pdf_id}/{page_num}")
+async def get_page(pdf_id: str, page_num: int):
+    pdf_info = get_pdf_info(UPLOAD_FOLDER, pdf_id)
+    if not pdf_info:
+        return JSONResponse(content={'error': 'PDF not found'}, status_code=404)
+    pdf_filename, pdf_name, page_count = pdf_info
+    if 1 <= page_num <= page_count:
+        svg_image = get_svg_page_image(pdf_filename, page_num)
+        return {'svg_data': svg_image}
+    else:
+        return JSONResponse(content={'error': 'Page not found'}, status_code=404)
+
+@app.post("/extract_bbox/{pdf_id}/{page_num}")
+async def extract_bbox(pdf_id: str, page_num: int, bbox_data: BBoxData):
+    pdf_info = get_pdf_info(UPLOAD_FOLDER, pdf_id)
+    if not pdf_info:
+        raise HTTPException(status_code=404, detail='PDF not found')
+    pdf_filename, pdf_name, page_count = pdf_info
+    if 1 <= page_num <= page_count:
+        x = bbox_data.x
+        y = bbox_data.y
+        width = bbox_data.width
+        height = bbox_data.height
+        message, page_key, line_item_number = extract_bbox_content(pdf_filename, pdf_name, page_num, x, y, width, height)
+        return {'message': message, 'page': page_key, 'line_item': line_item_number}
+    else:
+        raise HTTPException(status_code=404, detail='Page not found')
+
+@app.get("/get_image/{pdf_name}/{filename}")
+async def get_image(pdf_name: str, filename: str):
     save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
-    os.makedirs(save_directory, exist_ok=True)
+    file_path = os.path.join(save_directory, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(file_path)
 
-    # Path for the JSON file that will store extraction data
-    json_path = os.path.join(save_directory, "extracted_data.json")
-
-    # Load existing data from the JSON file or initialize an empty structure
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as json_file:
-            extracted_data = json.load(json_file)
-    else:
-        extracted_data = {pdf_name: {}}
-
-    # Store in session or pass necessary data to templates
-    return render_template('upload.html', page_count=page_count, pdf_name=pdf_name, pdf_id=pdf_id)
-
-@app.route('/get_page/<pdf_id>/<int:page_num>')
-def get_page(pdf_id, page_num):
-    # Find the PDF file corresponding to the pdf_id
-    pdf_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(pdf_id)]
-    if not pdf_files:
-        return jsonify({'error': 'PDF not found'}), 404
-    pdf_filename = pdf_files[0]
-    pdf_input = os.path.join(app.config['UPLOAD_FOLDER'], pdf_filename)
-    pdf_document = fitz.open(pdf_input)
-    if 1 <= page_num <= pdf_document.page_count:
-        page = pdf_document.load_page(page_num - 1)
-        svg_image = page.get_svg_image()
-        return jsonify({'svg_data': svg_image})
-    else:
-        return jsonify({'error': 'Page not found'}), 404
-
-@app.route('/extract_bbox/<pdf_id>/<int:page_num>', methods=['POST'])
-def extract_bbox(pdf_id, page_num):
-    # Similar logic as before, adjusted to use pdf_id
-    # Find the PDF file
-    pdf_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(pdf_id)]
-    if not pdf_files:
-        return jsonify({'error': 'PDF not found'}), 404
-    pdf_filename = pdf_files[0]
-    pdf_name = os.path.splitext(pdf_filename)[0]
-    pdf_input = os.path.join(app.config['UPLOAD_FOLDER'], pdf_filename)
-    pdf_document = fitz.open(pdf_input)
-
-    # Define save directory for this PDF
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
-    os.makedirs(save_directory, exist_ok=True)
-
-    # Path for the JSON file that will store extraction data
-    json_path = os.path.join(save_directory, "extracted_data.json")
-
-    # Load existing data from the JSON file or initialize an empty structure
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as json_file:
-            extracted_data = json.load(json_file)
-    else:
-        extracted_data = {pdf_name: {}}
-
-    if 1 <= page_num <= pdf_document.page_count:
-        data = request.get_json()
-        try:
-            x = float(data['x'])
-            y = float(data['y'])
-            width = float(data['width'])
-            height = float(data['height'])
-        except (TypeError, ValueError, KeyError):
-            return jsonify({'error': 'Invalid coordinates'}), 400
-
-        # Load the page and extract the specified region
-        page = pdf_document.load_page(page_num - 1)
-        bbox = fitz.Rect(x, y, x + width, y + height)
-        pix = page.get_pixmap(clip=bbox)
-
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        doubled_size = (img.width * 2, img.height * 2)
-        resized_img = img.resize(doubled_size, Image.LANCZOS)
-
-        # Save the extracted image as a PNG
-        img_filename = f"extracted_page{page_num}_{x}_{y}.png"
-        img_path = os.path.join(save_directory, img_filename)
-        resized_img.save(img_path)
-
-        # Format the page key as "Page {number}"
-        page_key = f"Page {page_num}"
-
-        # Update the extracted data dictionary without OCR text
-        if page_key not in extracted_data[pdf_name]:
-            extracted_data[pdf_name][page_key] = []
-        line_item_number = len(extracted_data[pdf_name][page_key]) + 1
-        extracted_data[pdf_name][page_key].append({
-            "line_item": line_item_number,
-            "coordinates": {"x": x, "y": y, "width": width, "height": height},
-            "img_path": img_filename,  # Store only the filename
-            # Initialize metadata as an empty dictionary
-            "metadata": {}
-        })
-
-        # Save updated data back to the JSON file
-        with open(json_path, 'w') as json_file:
-            json.dump(extracted_data, json_file, indent=4)
-
-        return jsonify({'message': f'BBox contents saved as {img_path}', 'page': page_key, 'line_item': line_item_number})
-    else:
-        return jsonify({'error': 'Page not found'}), 404
-
-@app.route('/get_image/<pdf_name>/<filename>')
-def get_image(pdf_name, filename):
-    # Serve images from the instance directory
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
-    return send_from_directory(save_directory, filename)
-
-@app.route('/perform_ocr', methods=['POST'])
-def perform_ocr():
-    data = request.get_json()
+@app.post("/perform_ocr")
+async def perform_ocr(data: PerformOCRData):
     try:
-        pdf_name = data.get('pdfName')
-        page_num = int(data.get('pageNum'))
-        line_item = int(data.get('lineItem'))
-        x = int(float(data.get('x')))
-        y = int(float(data.get('y')))
-        width = int(float(data.get('width')))
-        height = int(float(data.get('height')))
+        pdf_name = data.pdfName
+        page_num = data.pageNum
+        line_item = data.lineItem
+        x = int(data.x)
+        y = int(data.y)
+        width = int(data.width)
+        height = int(data.height)
     except (TypeError, ValueError):
-        return jsonify({'success': False, 'message': 'Invalid input parameters'}), 400
+        return {'success': False, 'message': 'Invalid input parameters'}, 400
 
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
-    json_path = os.path.join(save_directory, "extracted_data.json")
-
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as json_file:
-            extracted_data = json.load(json_file)
+    success, response_data = perform_ocr_on_image(pdf_name, page_num, line_item, x, y, width, height)
+    if success:
+        return {'success': True, 'ocr_text': response_data}
     else:
-        return jsonify({'success': False, 'message': 'No extracted data found'}), 404
+        raise HTTPException(status_code=404, detail=response_data)
 
-    page_key = f"Page {page_num}"
+@app.post("/get_line_item")
+async def get_line_item(data: GetLineItemData):
+    try:
+        pdf_name = data.pdfName
+        page_num = data.pageNum
+        line_item = data.lineItem
+    except (TypeError, ValueError):
+        return {'success': False, 'message': 'Invalid page number or line item'}, 400
 
-    if page_key in extracted_data[pdf_name]:
-        line_items = extracted_data[pdf_name][page_key]
-        # Find the line item in the list
-        item = next((item for item in line_items if item["line_item"] == line_item), None)
-        if item:
-            # Load the image associated with the line item
-            img_filename = item['img_path']
-            img_path = os.path.join(save_directory, img_filename)
-            if os.path.exists(img_path):
-                img = Image.open(img_path)
-
-                # Crop the image according to the bounding box
-                bbox = (x, y, x + width, y + height)
-                cropped_img = img.crop(bbox)
-
-                # Perform OCR on the cropped image
-                # Save the cropped image temporarily
-                cropped_img_path = os.path.join(save_directory, f"cropped_{img_filename}")
-                cropped_img.save(cropped_img_path)
-
-                ocr_text = get_ocr_results(cropped_img_path)
-
-                # Remove the temporary cropped image
-                os.remove(cropped_img_path)
-
-                # Return the OCR text to the client
-                return jsonify({'success': True, 'ocr_text': ocr_text}), 200
-            else:
-                return jsonify({'success': False, 'message': 'Image file not found'}), 404
-        else:
-            return jsonify({'success': False, 'message': 'Line item not found'}), 404
+    success, response_data = get_line_item_data(pdf_name, page_num, line_item)
+    if success:
+        return {'success': True, 'line_item_data': response_data, 'pdf_name': pdf_name}
     else:
-        return jsonify({'success': False, 'message': 'Page not found'}), 404
+        raise HTTPException(status_code=404, detail=response_data)
 
-@app.route('/get_line_item', methods=['POST'])
-def get_line_item():
-    data = request.get_json()
+@app.post("/submit_metadata")
+async def submit_metadata(data: dict):
     try:
         pdf_name = data.get('pdfName')
         page_num = int(data.get('pageNum'))
         line_item = int(data.get('lineItem'))
     except (TypeError, ValueError):
-        return jsonify({'success': False, 'message': 'Invalid page number or line item'}), 400
+        return {'success': False, 'message': 'Invalid page number or line item'}, 400
 
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
-    json_path = os.path.join(save_directory, "extracted_data.json")
-
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as json_file:
-            extracted_data = json.load(json_file)
+    success, message = update_line_item_metadata(pdf_name, page_num, line_item, data)
+    if success:
+        return {'success': True, 'message': message}
     else:
-        return jsonify({'success': False, 'message': 'No extracted data found'}), 404
+        raise HTTPException(status_code=404, detail=message)
 
-    page_key = f"Page {page_num}"
+@app.delete("/delete_line_item/{pdf_id}/{page_num}/{line_item}")
+async def delete_line_item(pdf_id: str, page_num: int, line_item: int):
+    pdf_info = get_pdf_info(UPLOAD_FOLDER, pdf_id)
+    if not pdf_info:
+        raise HTTPException(status_code=404, detail='PDF not found')
+    pdf_filename, pdf_name, page_count = pdf_info
 
-    if page_key in extracted_data[pdf_name]:
-        line_items = extracted_data[pdf_name][page_key]
-        item = next((item for item in line_items if item["line_item"] == line_item), None)
-        if item:
-            # Return the line item data, including img_path
-            return jsonify({'success': True, 'line_item_data': item, 'pdf_name': pdf_name}), 200
-        else:
-            return jsonify({'success': False, 'message': 'Line item not found'}), 404
+    success, message = delete_line_item_data(pdf_name, page_num, line_item)
+    if success:
+        return {'success': True}
     else:
-        return jsonify({'success': False, 'message': 'Page not found'}), 404
+        raise HTTPException(status_code=404, detail=message)
 
-@app.route('/submit_metadata', methods=['POST'])
-def submit_metadata():
-    data = request.get_json()
-    try:
-        pdf_name = data.get('pdfName')
-        page_num = int(data.get('pageNum'))
-        line_item = int(data.get('lineItem'))
-    except (TypeError, ValueError):
-        return jsonify({'success': False, 'message': 'Invalid page number or line item'}), 400
-
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
-    json_path = os.path.join(save_directory, "extracted_data.json")
-
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as json_file:
-            extracted_data = json.load(json_file)
-    else:
-        return jsonify({'success': False, 'message': 'No extracted data found'}), 404
-
-    page_key = f"Page {page_num}"
-
-    if page_key in extracted_data[pdf_name]:
-        line_items = extracted_data[pdf_name][page_key]
-        # Find the line item in the list
-        item = next((item for item in line_items if item["line_item"] == line_item), None)
-        if item:
-            # Update the metadata fields (fields are optional)
-            item['metadata'] = {
-                'lengthField': data.get('lengthField', '') if data.get('lengthField') is not None else '',
-                'breadthField': data.get('breadthField', '') if data.get('breadthField') is not None else '',
-                'heightField': data.get('heightField', '') if data.get('heightField') is not None else '',
-                'paintCostField': data.get('paintCostField', '') if data.get('paintCostField') is not None else '',
-                'noteField': data.get('noteField', '') if data.get('noteField') is not None else ''
-                # Add more fields as needed
-            }
-            # Save updated data back to the JSON file
-            with open(json_path, 'w') as json_file:
-                json.dump(extracted_data, json_file, indent=4)
-            return jsonify({'success': True, 'message': 'Metadata saved successfully'}), 200
-        else:
-            return jsonify({'success': False, 'message': 'Line item not found'}), 404
-    else:
-        return jsonify({'success': False, 'message': 'Page not found'}), 404
-
-@app.route('/delete_line_item/<pdf_id>/<int:page_num>/<int:line_item>', methods=['DELETE'])
-def delete_line_item(pdf_id, page_num, line_item):
-    # Similar logic as before, adjusted to use pdf_id
-    pdf_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(pdf_id)]
-    if not pdf_files:
-        return jsonify({'success': False, 'message': 'PDF not found'}), 404
-    pdf_filename = pdf_files[0]
-    pdf_name = os.path.splitext(pdf_filename)[0]
-
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
-    json_path = os.path.join(save_directory, "extracted_data.json")
-
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as json_file:
-            extracted_data = json.load(json_file)
-    else:
-        return jsonify({'success': False, 'message': 'No extracted data found'}), 404
-
-    page_key = f"Page {page_num}"
-
-    if page_key in extracted_data[pdf_name]:
-        line_items = extracted_data[pdf_name][page_key]
-        item = next((item for item in line_items if item["line_item"] == line_item), None)
-        if item:
-            # Remove the image file if it exists
-            img_filename = item['img_path']
-            img_path = os.path.join(save_directory, img_filename)
-            if os.path.exists(img_path):
-                os.remove(img_path)
-
-            # Remove the item from the list and update the JSON file
-            line_items.remove(item)
-            if not line_items:  # If no items left on the page, delete the page entry
-                del extracted_data[pdf_name][page_key]
-
-            with open(json_path, 'w') as json_file:
-                json.dump(extracted_data, json_file, indent=4)
-
-            return jsonify({'success': True})
-    return jsonify({'success': False, 'message': 'Line item not found'}), 404
-
-@app.route('/get_extracted_items/<pdf_name>')
-def get_extracted_items(pdf_name):
-    # Reload the extracted data from JSON file if it exists
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
-    json_path = os.path.join(save_directory, "extracted_data.json")
-
-    if os.path.exists(json_path):
-        with open(json_path, 'r') as json_file:
-            data = json.load(json_file)
-        return jsonify(data)
-    
-    # Return an empty structure if no JSON data exists
-    return jsonify({pdf_name: {}}), 200
+@app.get("/get_extracted_items/{pdf_name}")
+async def get_extracted_items(pdf_name: str):
+    data = get_extracted_items_data(pdf_name)
+    return data
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=8000)
