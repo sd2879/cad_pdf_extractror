@@ -118,7 +118,7 @@ def perform_ocr_on_image(UPLOAD_FOLDER, pdf_name, page_num, line_item, x, y, wid
                 ocr_text = get_ocr_results(cropped_img_path)
 
                 # Remove the temporary cropped image
-                # os.remove(cropped_img_path)
+                os.remove(cropped_img_path)
 
                 # Return the OCR text
                 return True, ocr_text
@@ -204,7 +204,7 @@ def get_line_item_data(UPLOAD_FOLDER, pdf_name, page_num, line_item):
 def get_extracted_items_data(UPLOAD_FOLDER, pdf_name):
     save_directory = UPLOAD_FOLDER
     json_path = os.path.join(save_directory, "extracted_data.json")
-    pdf_folder = os.path.join(os.getcwd(), "data", "pdf")
+    pdf_folder = UPLOAD_FOLDER
     
     pdf_files = [f for f in os.listdir(pdf_folder) if f.startswith(pdf_name)]
     if not pdf_files:

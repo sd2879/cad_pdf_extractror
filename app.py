@@ -16,7 +16,7 @@ app = FastAPI(
 )
 
 # Define upload folder and ensure it exists
-UPLOAD_FOLDER = os.path.join(os.getcwd(), "data", "project1")
+UPLOAD_FOLDER = os.path.join(os.getcwd(), "data", "project2")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 templates = Jinja2Templates(directory="templates")
