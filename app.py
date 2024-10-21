@@ -16,7 +16,7 @@ app = FastAPI(
 )
 
 # Define upload folder and ensure it exists
-UPLOAD_FOLDER = os.path.join(os.getcwd(), "data", "project2")
+UPLOAD_FOLDER = os.path.join(os.getcwd(), "data", "project3")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 project_name_ui = os.path.basename(UPLOAD_FOLDER)
 
@@ -26,12 +26,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # JSON file to store the pdf_mapping
 PDF_MAPPING_FILE = os.path.join(os.getcwd(), "companies_mapping.json")
 
-# Function to save pdf_mapping to JSON with the new structure
+# Function to save pdf_mapping to JSON
 def save_pdf_mapping():
     with open(PDF_MAPPING_FILE, 'w') as f:
         json.dump(pdf_mapping, f, indent=4)
 
-# Function to load pdf_mapping from JSON with the new structure
+# Function to load pdf_mapping from JSON
 def load_pdf_mapping():
     if os.path.exists(PDF_MAPPING_FILE):
         with open(PDF_MAPPING_FILE, 'r') as f:
@@ -62,9 +62,37 @@ class GetLineItemData(BaseModel):
     pageNum: int
     lineItem: int
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(os.path.join(app.static_directory, "favicon.ico"))
+
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def upload_pdf_get(request: Request):
+    # Check if there is a PDF file in the UPLOAD_FOLDER
+    pdf_files = [f for f in os.listdir(UPLOAD_FOLDER) if f.lower().endswith('.pdf')]
+    
+    if pdf_files:
+        # If a PDF file exists, get the first one (or handle multiple PDFs as needed)
+        pdf_file = pdf_files[0]
+        pdf_id = next((p['pdf_id'] for p in pdf_mapping.values() if p['pdf_name'] == pdf_file), None)
+
+        if pdf_id:
+            # If a mapping exists, use it
+            return RedirectResponse(url=f"/viewer/{pdf_id}", status_code=303)
+        else:
+            # If there's no mapping, generate a new one
+            pdf_id = str(uuid.uuid4())
+            project_name = project_name_ui
+            pdf_mapping[project_name] = {
+                "project_path": UPLOAD_FOLDER,
+                "pdf_name": pdf_file,
+                "pdf_id": pdf_id
+            }
+            save_pdf_mapping()
+            return RedirectResponse(url=f"/viewer/{pdf_id}", status_code=303)
+    
+    # If no PDF exists, render the index.html page to upload a new PDF
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/", response_class=HTMLResponse)
@@ -81,7 +109,7 @@ async def upload_pdf_post(request: Request, pdf_file: UploadFile = File(...)):
     # Generate a unique ID for the PDF
     pdf_id = str(uuid.uuid4())
     
-    # Update the pdf_mapping to use the new structure
+    # Update the pdf_mapping
     project_name = project_name_ui
     pdf_mapping[project_name] = {
         "project_path": UPLOAD_FOLDER,

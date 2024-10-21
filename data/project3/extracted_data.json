@@ -1,0 +1,44 @@
+{
+    "input": {
+        "Page 1": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 1398.2404692082112,
+                    "y": 424.46587196353295,
+                    "width": 390.50858818600756,
+                    "height": 386.5136154168412
+                },
+                "img_path": "extracted_page1_1398.2404692082112_424.46587196353295.png",
+                "img_actual_path": "/home/suman/projects/cad_pdf_extractror/data/project3/images/extracted_page1_1398.2404692082112_424.46587196353295.png",
+                "metadata": {
+                    "lengthField": "SECTION GA-541",
+                    "breadthField": null,
+                    "heightField": null,
+                    "paintCostField": null,
+                    "noteField": null
+                }
+            }
+        ],
+        "Page 4": [
+            {
+                "line_item": 2,
+                "coordinates": {
+                    "x": 1763.7804775869292,
+                    "y": 393.50483300249397,
+                    "width": 2.9962295768747382,
+                    "height": 2.9962295768747382
+                },
+                "img_path": "extracted_page4_1763.7804775869292_393.50483300249397.png",
+                "img_actual_path": "/home/suman/projects/cad_pdf_extractror/data/project3/images/extracted_page4_1763.7804775869292_393.50483300249397.png",
+                "metadata": {
+                    "lengthField": null,
+                    "breadthField": null,
+                    "heightField": null,
+                    "paintCostField": null,
+                    "noteField": null
+                }
+            }
+        ]
+    }
+}
