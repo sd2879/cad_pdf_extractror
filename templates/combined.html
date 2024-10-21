@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Select Upload Folder</title>
+    <script>
+        function openApp(event) {
+            event.preventDefault();
+            var upload_folder = document.getElementById('upload_folder').value;
+            var url = 'http://localhost:8888/set_upload_folder?upload_folder=' + encodeURIComponent(upload_folder);
+            window.open(url, '_blank');
+        }
+    </script>
+</head>
+<body>
+    <h1>Select Upload Folder</h1>
+    <form onsubmit="openApp(event)">
+        <label for="upload_folder">Upload Folder Path:</label>
+        <input type="text" id="upload_folder" name="upload_folder" required>
+        <button type="submit">Submit</button>
+    </form>
+</body>
+</html>

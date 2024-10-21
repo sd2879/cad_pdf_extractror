@@ -15,31 +15,14 @@ app = FastAPI(
     contact={"name": "Suman Deb", "email": "suman8deb@gmail.com"}
 )
 
-# Define upload folder and ensure it exists
-UPLOAD_FOLDER = os.path.join(os.getcwd(), "data", "project3")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-project_name_ui = os.path.basename(UPLOAD_FOLDER)
+# Initialize global variables for UPLOAD_FOLDER and pdf_mapping
+UPLOAD_FOLDER = None
+project_name_ui = None
+PDF_MAPPING_FILE = None
+pdf_mapping = {}
 
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# JSON file to store the pdf_mapping
-PDF_MAPPING_FILE = os.path.join(os.getcwd(), "companies_mapping.json")
-
-# Function to save pdf_mapping to JSON
-def save_pdf_mapping():
-    with open(PDF_MAPPING_FILE, 'w') as f:
-        json.dump(pdf_mapping, f, indent=4)
-
-# Function to load pdf_mapping from JSON
-def load_pdf_mapping():
-    if os.path.exists(PDF_MAPPING_FILE):
-        with open(PDF_MAPPING_FILE, 'r') as f:
-            return json.load(f)
-    return {}
-
-# Load pdf_mapping from JSON on startup
-pdf_mapping = load_pdf_mapping()
 
 # Pydantic models
 class BBoxData(BaseModel):
@@ -64,11 +47,43 @@ class GetLineItemData(BaseModel):
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse(os.path.join(app.static_directory, "favicon.ico"))
+    return FileResponse(os.path.join("static", "favicon.ico"))
+
+# Function to save pdf_mapping to JSON
+def save_pdf_mapping():
+    with open(PDF_MAPPING_FILE, 'w') as f:
+        json.dump(pdf_mapping, f, indent=4)
+
+# Function to load pdf_mapping from JSON
+def load_pdf_mapping():
+    global pdf_mapping
+    if os.path.exists(PDF_MAPPING_FILE):
+        with open(PDF_MAPPING_FILE, 'r') as f:
+            pdf_mapping = json.load(f)
+    else:
+        pdf_mapping = {}
+
+# Route to set UPLOAD_FOLDER
+@app.get("/set_upload_folder", response_class=HTMLResponse)
+async def set_upload_folder(request: Request):
+    global UPLOAD_FOLDER, project_name_ui, PDF_MAPPING_FILE
+    upload_folder = request.query_params.get('upload_folder')
+    if not upload_folder:
+        return HTMLResponse("Please provide 'upload_folder' as a query parameter.", status_code=400)
+    UPLOAD_FOLDER = os.path.abspath(upload_folder)
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    project_name_ui = os.path.basename(UPLOAD_FOLDER)
+    PDF_MAPPING_FILE = os.path.join(UPLOAD_FOLDER, "companies_mapping.json")
+    load_pdf_mapping()
+    return RedirectResponse(url="/", status_code=303)
 
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def upload_pdf_get(request: Request):
+    global UPLOAD_FOLDER, project_name_ui
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        return HTMLResponse("UPLOAD_FOLDER not set. Please go to /set_upload_folder?upload_folder=YOUR_PATH", status_code=400)
     # Check if there is a PDF file in the UPLOAD_FOLDER
     pdf_files = [f for f in os.listdir(UPLOAD_FOLDER) if f.lower().endswith('.pdf')]
     
@@ -97,6 +112,10 @@ async def upload_pdf_get(request: Request):
 
 @app.post("/", response_class=HTMLResponse)
 async def upload_pdf_post(request: Request, pdf_file: UploadFile = File(...)):
+    global UPLOAD_FOLDER, project_name_ui
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        return HTMLResponse("UPLOAD_FOLDER not set. Please go to /set_upload_folder?upload_folder=YOUR_PATH", status_code=400)
     # Check for PDF file extension
     if not pdf_file.filename.lower().endswith('.pdf'):
         return templates.TemplateResponse('index.html', {"request": request, "error": 'Invalid file type. Please upload a PDF.'})
@@ -123,6 +142,9 @@ async def upload_pdf_post(request: Request, pdf_file: UploadFile = File(...)):
 
 @app.get("/viewer/{pdf_id}", response_class=HTMLResponse)
 async def index(request: Request, pdf_id: str):
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        return HTMLResponse("UPLOAD_FOLDER not set. Please go to /set_upload_folder?upload_folder=YOUR_PATH", status_code=400)
     # Retrieve the project and PDF info using pdf_id
     project = next((p for p in pdf_mapping.values() if p['pdf_id'] == pdf_id), None)
     
@@ -140,6 +162,9 @@ async def index(request: Request, pdf_id: str):
 
 @app.get("/get_page/{pdf_id}/{page_num}")
 async def get_page(pdf_id: str, page_num: int):
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        return JSONResponse(content={'error': 'UPLOAD_FOLDER not set. Please set it first.'}, status_code=400)
     # Retrieve the project and PDF info using pdf_id
     project = next((p for p in pdf_mapping.values() if p['pdf_id'] == pdf_id), None)
     
@@ -160,6 +185,9 @@ async def get_page(pdf_id: str, page_num: int):
 
 @app.post("/extract_bbox/{pdf_id}/{page_num}")
 async def extract_bbox(pdf_id: str, page_num: int, bbox_data: BBoxData):
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        raise HTTPException(status_code=400, detail='UPLOAD_FOLDER not set. Please set it first.')
     # Retrieve the project and PDF info using pdf_id
     project = next((p for p in pdf_mapping.values() if p['pdf_id'] == pdf_id), None)
     
@@ -184,6 +212,9 @@ async def extract_bbox(pdf_id: str, page_num: int, bbox_data: BBoxData):
 
 @app.get("/get_image/{pdf_name}/{filename}")
 async def get_image(pdf_name: str, filename: str):
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        raise HTTPException(status_code=400, detail='UPLOAD_FOLDER not set. Please set it first.')
     file_path = os.path.join(UPLOAD_FOLDER, "images", filename)
 
     if not os.path.exists(file_path):
@@ -193,6 +224,9 @@ async def get_image(pdf_name: str, filename: str):
 
 @app.post("/perform_ocr")
 async def perform_ocr(data: PerformOCRData):
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        raise HTTPException(status_code=400, detail='UPLOAD_FOLDER not set. Please set it first.')
     try:
         pdf_name = data.pdfName
         page_num = data.pageNum
@@ -212,6 +246,9 @@ async def perform_ocr(data: PerformOCRData):
 
 @app.post("/get_line_item")
 async def get_line_item(data: GetLineItemData):
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        raise HTTPException(status_code=400, detail='UPLOAD_FOLDER not set. Please set it first.')
     try:
         pdf_name = data.pdfName
         page_num = data.pageNum
@@ -227,6 +264,9 @@ async def get_line_item(data: GetLineItemData):
 
 @app.post("/submit_metadata")
 async def submit_metadata(data: dict):
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        raise HTTPException(status_code=400, detail='UPLOAD_FOLDER not set. Please set it first.')
     try:
         pdf_name = data.get('pdfName')
         page_num = int(data.get('pageNum'))
@@ -242,6 +282,9 @@ async def submit_metadata(data: dict):
 
 @app.delete("/delete_line_item/{pdf_id}/{page_num}/{line_item}")
 async def delete_line_item(pdf_id: str, page_num: int, line_item: int):
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        raise HTTPException(status_code=400, detail='UPLOAD_FOLDER not set. Please set it first.')
     # Retrieve the project and PDF info using pdf_id
     project = next((p for p in pdf_mapping.values() if p['pdf_id'] == pdf_id), None)
     
@@ -261,6 +304,9 @@ async def delete_line_item(pdf_id: str, page_num: int, line_item: int):
 
 @app.get("/get_extracted_items/{pdf_name}")
 async def get_extracted_items(pdf_name: str):
+    if UPLOAD_FOLDER is None:
+        # Ask user to set UPLOAD_FOLDER
+        raise HTTPException(status_code=400, detail='UPLOAD_FOLDER not set. Please set it first.')
     data = get_extracted_items_data(UPLOAD_FOLDER, pdf_name)
     return data
 
