@@ -1,0 +1,23 @@
+{
+    "174c5842-4244-4f31-9013-de5e3a2c1047": {
+        "Page 1": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 793.002094679514,
+                    "y": 639.1956583062225,
+                    "width": 522.342689568496,
+                    "height": 503.366568914956
+                },
+                "img_path": "extracted_page1_793.002094679514_639.1956583062225.png",
+                "metadata": {
+                    "lengthField": null,
+                    "breadthField": null,
+                    "heightField": null,
+                    "paintCostField": null,
+                    "noteField": null
+                }
+            }
+        ]
+    }
+}
