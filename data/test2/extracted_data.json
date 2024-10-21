@@ -1,0 +1,78 @@
+{
+    "input": {
+        "Page 1": [
+            {
+                "line_item": 1,
+                "coordinates": {
+                    "x": 1373.2607786341991,
+                    "y": 408.4716971869017,
+                    "width": 490.3767097059257,
+                    "height": 402.47921842014824
+                },
+                "img_path": "extracted_page1_1373.2607786341991_408.4716971869017.png",
+                "img_actual_path": "/home/suman/projects/cad_pdf_extractror/data/test2/images/extracted_page1_1373.2607786341991_408.4716971869017.png",
+                "metadata": {
+                    "lengthField": "880",
+                    "breadthField": "SECTION GA",
+                    "heightField": "512",
+                    "paintCostField": null,
+                    "noteField": null
+                }
+            },
+            {
+                "line_item": 2,
+                "coordinates": {
+                    "x": 620.2215523589769,
+                    "y": 315.58827630222396,
+                    "width": 2.9962393833767,
+                    "height": 2.9962393833767
+                },
+                "img_path": "extracted_page1_620.2215523589769_315.58827630222396.png",
+                "img_actual_path": "/home/suman/projects/cad_pdf_extractror/data/test2/images/extracted_page1_620.2215523589769_315.58827630222396.png",
+                "metadata": {
+                    "lengthField": null,
+                    "breadthField": null,
+                    "heightField": null,
+                    "paintCostField": null,
+                    "noteField": null
+                }
+            },
+            {
+                "line_item": 3,
+                "coordinates": {
+                    "x": 1903.595149491875,
+                    "y": 219.70861603416958,
+                    "width": 10.97840836565369,
+                    "height": 6.9756198144238795
+                },
+                "img_path": "extracted_page1_1903.595149491875_219.70861603416958.png",
+                "img_actual_path": "/home/suman/projects/cad_pdf_extractror/data/test2/images/extracted_page1_1903.595149491875_219.70861603416958.png",
+                "metadata": {
+                    "lengthField": null,
+                    "breadthField": null,
+                    "heightField": null,
+                    "paintCostField": null,
+                    "noteField": null
+                }
+            },
+            {
+                "line_item": 4,
+                "coordinates": {
+                    "x": 326.5900927880603,
+                    "y": 585.249820806127,
+                    "width": 419.47351367273797,
+                    "height": 204.72741911728608
+                },
+                "img_path": "extracted_page1_326.5900927880603_585.249820806127.png",
+                "img_actual_path": "/home/suman/projects/cad_pdf_extractror/data/test2/images/extracted_page1_326.5900927880603_585.249820806127.png",
+                "metadata": {
+                    "lengthField": null,
+                    "breadthField": null,
+                    "heightField": null,
+                    "paintCostField": null,
+                    "noteField": null
+                }
+            }
+        ]
+    }
+}
