@@ -5,36 +5,29 @@ from PIL import Image
 from utils.ocr import get_ocr_results
 
 def get_pdf_info(upload_folder, pdf_id):
-    # Find the PDF file corresponding to the pdf_id
-    pdf_files = [f for f in os.listdir(upload_folder) if f.startswith(pdf_id)]
-    if not pdf_files:
-        return None
+    pdf_files = [f for f in os.listdir(upload_folder) if f.startswith(pdf_id) and f.endswith('.pdf')]
+    if len(pdf_files) != 1:
+        return None 
     pdf_filename = pdf_files[0]
     pdf_name = os.path.splitext(pdf_filename)[0]
     pdf_input = os.path.join(upload_folder, pdf_filename)
     pdf_document = fitz.open(pdf_input)
     page_count = pdf_document.page_count
-    return pdf_filename, pdf_name, page_count
+    return pdf_filename, pdf_name, page_count, pdf_input
 
-def get_svg_page_image(pdf_filename, page_num):
-    pdf_input = os.path.join(os.getcwd(), "data", "pdf", pdf_filename)
+
+def get_svg_page_image(pdf_input, page_num):
     pdf_document = fitz.open(pdf_input)
     page = pdf_document.load_page(page_num - 1)
     svg_image = page.get_svg_image()
     return svg_image
 
-def extract_bbox_content(pdf_filename, pdf_name, page_num, x, y, width, height):
-    pdf_input = os.path.join(os.getcwd(), "data", "pdf", pdf_filename)
+def extract_bbox_content(UPLOAD_FOLDER, pdf_input, pdf_filename, pdf_name, page_num, x, y, width, height):
     pdf_document = fitz.open(pdf_input)
-
-    # Define save directory for this PDF
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+    save_directory = UPLOAD_FOLDER
     os.makedirs(save_directory, exist_ok=True)
 
-    # Path for the JSON file that will store extraction data
     json_path = os.path.join(save_directory, "extracted_data.json")
-
-    # Load existing data from the JSON file or initialize an empty structure
     if os.path.exists(json_path):
         with open(json_path, 'r') as json_file:
             extracted_data = json.load(json_file)
@@ -52,7 +45,9 @@ def extract_bbox_content(pdf_filename, pdf_name, page_num, x, y, width, height):
 
     # Save the extracted image as a PNG
     img_filename = f"extracted_page{page_num}_{x}_{y}.png"
-    img_path = os.path.join(save_directory, img_filename)
+    img_folder = os.path.join(save_directory, "images")
+    os.makedirs(img_folder, exist_ok=True)
+    img_path = os.path.join(img_folder, img_filename)
     resized_img.save(img_path)
 
     # Format the page key as "Page {number}"
@@ -74,8 +69,9 @@ def extract_bbox_content(pdf_filename, pdf_name, page_num, x, y, width, height):
     extracted_data[pdf_name][page_key].append({
         "line_item": line_item_number,
         "coordinates": {"x": x, "y": y, "width": width, "height": height},
-        "img_path": img_filename,  # Store only the filename
-        "metadata": initial_metadata  # Initialize metadata with fixed keys and None values
+        "img_path": img_filename, 
+        "img_actual_path" : img_path,
+        "metadata": initial_metadata
     })
 
     # Save updated data back to the JSON file
@@ -85,8 +81,8 @@ def extract_bbox_content(pdf_filename, pdf_name, page_num, x, y, width, height):
     message = f'BBox contents saved as {img_path}'
     return message, page_key, line_item_number
 
-def perform_ocr_on_image(pdf_name, page_num, line_item, x, y, width, height):
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+def perform_ocr_on_image(UPLOAD_FOLDER, pdf_name, page_num, line_item, x, y, width, height):
+    save_directory = UPLOAD_FOLDER
     json_path = os.path.join(save_directory, "extracted_data.json")
 
     if os.path.exists(json_path):
@@ -104,7 +100,8 @@ def perform_ocr_on_image(pdf_name, page_num, line_item, x, y, width, height):
         if item:
             # Load the image associated with the line item
             img_filename = item['img_path']
-            img_path = os.path.join(save_directory, img_filename)
+            # img_path = item['img_path']
+            img_path = os.path.join(save_directory, "images", img_filename)
             if os.path.exists(img_path):
                 img = Image.open(img_path)
 
@@ -114,13 +111,14 @@ def perform_ocr_on_image(pdf_name, page_num, line_item, x, y, width, height):
 
                 # Perform OCR on the cropped image
                 # Save the cropped image temporarily
-                cropped_img_path = os.path.join(save_directory, f"cropped_{img_filename}")
+                cropped_img_path = os.path.join(save_directory, "images", f"cropped_{img_filename}")
+                # cropped_img_path = os.path.join(img_path)
                 cropped_img.save(cropped_img_path)
 
                 ocr_text = get_ocr_results(cropped_img_path)
 
                 # Remove the temporary cropped image
-                os.remove(cropped_img_path)
+                # os.remove(cropped_img_path)
 
                 # Return the OCR text
                 return True, ocr_text
@@ -131,8 +129,8 @@ def perform_ocr_on_image(pdf_name, page_num, line_item, x, y, width, height):
     else:
         return False, 'Page not found'
 
-def update_line_item_metadata(pdf_name, page_num, line_item, data):
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+def update_line_item_metadata(UPLOAD_FOLDER, pdf_name, page_num, line_item, data):
+    save_directory = UPLOAD_FOLDER
     json_path = os.path.join(save_directory, "extracted_data.json")
 
     if os.path.exists(json_path):
@@ -168,8 +166,8 @@ def update_line_item_metadata(pdf_name, page_num, line_item, data):
     else:
         return False, 'Page not found'
 
-def get_line_item_data(pdf_name, page_num, line_item):
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+def get_line_item_data(UPLOAD_FOLDER, pdf_name, page_num, line_item):
+    save_directory = UPLOAD_FOLDER
     json_path = os.path.join(save_directory, "extracted_data.json")
 
     if os.path.exists(json_path):
@@ -203,16 +201,13 @@ def get_line_item_data(pdf_name, page_num, line_item):
     else:
         return False, 'Page not found'
 
-def get_extracted_items_data(pdf_name):
-    # Define the directory paths
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+def get_extracted_items_data(UPLOAD_FOLDER, pdf_name):
+    save_directory = UPLOAD_FOLDER
     json_path = os.path.join(save_directory, "extracted_data.json")
     pdf_folder = os.path.join(os.getcwd(), "data", "pdf")
     
-    # Find the PDF file corresponding to the pdf_name
     pdf_files = [f for f in os.listdir(pdf_folder) if f.startswith(pdf_name)]
     if not pdf_files:
-        # If PDF not found, handle the error or set page_count to 0
         page_count = 0
     else:
         pdf_filename = pdf_files[0]
@@ -220,10 +215,8 @@ def get_extracted_items_data(pdf_name):
         pdf_document = fitz.open(pdf_input)
         page_count = pdf_document.page_count
 
-    # Initialize the data structure
     data = {pdf_name: {}}
     
-    # Generate page keys with None as default values
     for page_num in range(1, page_count + 1):
         page_key = f"Page {page_num}"
         data[pdf_name][page_key] = None
@@ -253,8 +246,8 @@ def get_extracted_items_data(pdf_name):
     
     return data
 
-def delete_line_item_data(pdf_name, page_num, line_item):
-    save_directory = os.path.join(os.getcwd(), "data", "instance", pdf_name)
+def delete_line_item_data(UPLOAD_FOLDER, pdf_name, page_num, line_item):
+    save_directory = UPLOAD_FOLDER
     json_path = os.path.join(save_directory, "extracted_data.json")
 
     if os.path.exists(json_path):
@@ -271,7 +264,7 @@ def delete_line_item_data(pdf_name, page_num, line_item):
         if item:
             # Remove the image file if it exists
             img_filename = item['img_path']
-            img_path = os.path.join(save_directory, img_filename)
+            img_path = os.path.join(save_directory, "images", img_filename)
             if os.path.exists(img_path):
                 os.remove(img_path)
 
