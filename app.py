@@ -23,7 +23,7 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # JSON file to store the pdf_mapping
-PDF_MAPPING_FILE = os.path.join(os.getcwd(), "pdf_mapping.json")
+PDF_MAPPING_FILE = os.path.join(os.getcwd(), "companies_mapping.json")
 
 # Function to save pdf_mapping to JSON with the new structure
 def save_pdf_mapping():
