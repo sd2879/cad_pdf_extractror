@@ -18,6 +18,7 @@ app = FastAPI(
 # Define upload folder and ensure it exists
 UPLOAD_FOLDER = os.path.join(os.getcwd(), "data", "project2")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+project_name_ui = os.path.basename(UPLOAD_FOLDER)
 
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -81,7 +82,7 @@ async def upload_pdf_post(request: Request, pdf_file: UploadFile = File(...)):
     pdf_id = str(uuid.uuid4())
     
     # Update the pdf_mapping to use the new structure
-    project_name = "project1"
+    project_name = project_name_ui
     pdf_mapping[project_name] = {
         "project_path": UPLOAD_FOLDER,
         "pdf_name": pdf_file.filename,
