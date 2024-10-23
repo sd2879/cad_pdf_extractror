@@ -144,7 +144,7 @@ async def upload_pdf_get(request: Request):
 async def upload_pdf_post(request: Request, pdf_file: UploadFile = File(...)):
     global UPLOAD_FOLDER, project_name_ui
     if UPLOAD_FOLDER is None:
-        return HTMLResponse("UPLOAD_FOLDER not set. Please go to /set_upload_folder?upload_folder=YOUR_PATH", status_code=400)
+        return HTMLResponse("UPLOAD_FOLDER not set. Please go to /set_project_path and set it.", status_code=400)
     
     # Validate file extension to ensure it's a PDF
     if not pdf_file.filename.lower().endswith('.pdf'):
@@ -169,7 +169,7 @@ async def upload_pdf_post(request: Request, pdf_file: UploadFile = File(...)):
 
 # Viewer page for displaying the PDF information
 @app.get("/viewer/{pdf_id}", response_class=HTMLResponse)
-async def index(request: Request, pdf_id: str):
+async def viewer(request: Request, pdf_id: str):
     if UPLOAD_FOLDER is None:
         return HTMLResponse("UPLOAD_FOLDER not set. Please set it first.", status_code=400)
     
