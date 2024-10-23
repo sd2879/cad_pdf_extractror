@@ -1,12 +1,21 @@
 import os
 import uuid
 import json
-from fastapi import FastAPI, Request, UploadFile, File, HTTPException
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Body
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from utils.main import get_pdf_info, get_svg_page_image, extract_bbox_content, perform_ocr_on_image, get_line_item_data, update_line_item_metadata, delete_line_item_data, get_extracted_items_data
+from utils.main import (
+    get_pdf_info,
+    get_svg_page_image,
+    extract_bbox_content,
+    perform_ocr_on_image,
+    get_line_item_data,
+    update_line_item_metadata,
+    delete_line_item_data,
+    get_extracted_items_data
+)
 
 # Initialize the FastAPI app with metadata like title, description, and version
 app = FastAPI(
@@ -26,14 +35,13 @@ pdf_mapping = {}
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Pydantic model to handle bounding box data in API requests
+# Pydantic models to handle data in API requests
 class BBoxData(BaseModel):
     x: float
     y: float
     width: float
     height: float
 
-# Pydantic model to handle OCR data for processing specific regions on PDF pages
 class PerformOCRData(BaseModel):
     pdfName: str
     pageNum: int
@@ -43,7 +51,6 @@ class PerformOCRData(BaseModel):
     width: float
     height: float
 
-# Pydantic model to request line item data for specific pages in the PDF
 class GetLineItemData(BaseModel):
     pdfName: str
     pageNum: int
@@ -69,25 +76,44 @@ def load_pdf_mapping():
         pdf_mapping = {}
 
 # Route to set the upload folder dynamically and load existing PDF mappings
-@app.get("/set_upload_folder", response_class=HTMLResponse)
-async def set_upload_folder(request: Request):
+@app.post("/set_project_path")
+async def set_project_path(data: dict = Body(...)):
     global UPLOAD_FOLDER, project_name_ui, PDF_MAPPING_FILE
-    upload_folder = request.query_params.get('upload_folder')
-    if not upload_folder:
-        return HTMLResponse("Please provide 'upload_folder' as a query parameter.", status_code=400)
-    UPLOAD_FOLDER = os.path.abspath(upload_folder)
+    project_path = data.get('project_path')
+    if not project_path:
+        return JSONResponse(content={'error': 'Please provide project_path in the JSON body.'}, status_code=400)
+    UPLOAD_FOLDER = os.path.abspath(project_path)
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     project_name_ui = os.path.basename(UPLOAD_FOLDER)
     PDF_MAPPING_FILE = os.path.join(UPLOAD_FOLDER, "companies_mapping.json")
     load_pdf_mapping()  # Load PDF mappings from the JSON file
-    return RedirectResponse(url="/", status_code=303)
+
+    # Generate or retrieve the pdf_id
+    pdf_files = [f for f in os.listdir(UPLOAD_FOLDER) if f.lower().endswith('.pdf')]
+    if pdf_files:
+        pdf_file = pdf_files[0]
+        pdf_id = next((p['pdf_id'] for p in pdf_mapping.values() if p['pdf_name'] == pdf_file), None)
+        if not pdf_id:
+            pdf_id = str(uuid.uuid4())
+            project_name = project_name_ui
+            pdf_mapping[project_name] = {
+                "project_path": UPLOAD_FOLDER,
+                "pdf_name": pdf_file,
+                "pdf_id": pdf_id
+            }
+            save_pdf_mapping()
+    else:
+        pdf_id = None  # No PDF files found
+
+    return JSONResponse(content={'pdf_id': pdf_id}, status_code=200)
+
 
 # Route to render the main page or redirect to the PDF viewer if a PDF already exists
 @app.get("/", response_class=HTMLResponse)
 async def upload_pdf_get(request: Request):
     global UPLOAD_FOLDER, project_name_ui
     if UPLOAD_FOLDER is None:
-        return HTMLResponse("UPLOAD_FOLDER not set. Please go to /set_upload_folder?upload_folder=YOUR_PATH", status_code=400)
+        return HTMLResponse("UPLOAD_FOLDER not set. Please set it first.", status_code=400)
     
     # Check if any PDF files are already uploaded
     pdf_files = [f for f in os.listdir(UPLOAD_FOLDER) if f.lower().endswith('.pdf')]
@@ -145,7 +171,7 @@ async def upload_pdf_post(request: Request, pdf_file: UploadFile = File(...)):
 @app.get("/viewer/{pdf_id}", response_class=HTMLResponse)
 async def index(request: Request, pdf_id: str):
     if UPLOAD_FOLDER is None:
-        return HTMLResponse("UPLOAD_FOLDER not set. Please go to /set_upload_folder?upload_folder=YOUR_PATH", status_code=400)
+        return HTMLResponse("UPLOAD_FOLDER not set. Please set it first.", status_code=400)
     
     # Retrieve the PDF info based on the provided pdf_id
     project = next((p for p in pdf_mapping.values() if p['pdf_id'] == pdf_id), None)
@@ -157,7 +183,6 @@ async def index(request: Request, pdf_id: str):
     if not pdf_info:
         raise HTTPException(status_code=404, detail="PDF info not found")
     
-    # Extract necessary details from the PDF and render the upload.html template
     pdf_filename, pdf_name, page_count, pdf_input = pdf_info
     return templates.TemplateResponse('upload.html', {"request": request, "page_count": page_count, "pdf_name": pdf_name, "pdf_id": pdf_id})
 
